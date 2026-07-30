@@ -1,0 +1,137 @@
+# The clause taxonomy.
+#
+# Every `ClauseCandidate.category` must be one of these ids. This is the vocabulary the
+# whole system agrees on, and it is deliberately a **fixed global list** rather than
+# something a tenant can extend.
+#
+# Why fixed: `ClauseCandidate` is the object clause recommendation, risk analysis, playbook
+# validation and automatic clause-library construction all read. If two tenants could use
+# different category names for the same idea — "confidentiality" and "nda_obligations" —
+# candidates would stop being comparable across contracts, and the cross-capability reuse
+# that justifies separating Phase A from Phase B would be gone.
+#
+# Tenant- and contract-specific nuance goes in `ClauseCandidate.subcategory`, which is free
+# text and constrains nothing.
+#
+# Adding a category is a deliberate, reviewed change: it widens the vocabulary for every
+# tenant at once. Prefer `subcategory` unless a genuinely new *kind* of clause appears.
+
+version: 1
+
+categories:
+  # --- the frame ---------------------------------------------------------------
+  - id: definitions
+    description: Defined terms and interpretation rules.
+  - id: parties
+    description: Who is contracting, their roles and capacities.
+  - id: recitals
+    description: Background and purpose. Usually non-binding.
+
+  # --- what is being bought ----------------------------------------------------
+  - id: scope_of_services
+    description: What the provider will do or supply.
+  - id: deliverables
+    description: Specific outputs, milestones and acceptance criteria.
+  - id: service_levels
+    description: Measurable performance commitments, credits and remedies.
+  - id: change_control
+    description: How the scope may be varied after signature.
+
+  # --- money -------------------------------------------------------------------
+  - id: fees_and_payment
+    description: Charges, payment terms, invoicing and late payment.
+  - id: taxes
+    description: Which party bears which taxes; withholding and gross-up.
+  - id: expenses
+    description: Reimbursable costs and their limits.
+
+  # --- time --------------------------------------------------------------------
+  - id: term_and_duration
+    description: When the agreement starts and how long it runs.
+  - id: renewal
+    description: Extension, auto-renewal and notice to prevent it.
+  - id: termination
+    description: Exit rights, notice periods and consequences of ending.
+  - id: suspension
+    description: Pausing performance short of termination.
+  - id: survival
+    description: Which obligations outlive the agreement.
+
+  # --- information -------------------------------------------------------------
+  - id: confidentiality
+    description: Protection, permitted use and return of confidential information.
+  - id: data_protection
+    description: Personal data, controller/processor roles, transfers. GDPR, DPDP, CCPA.
+  - id: security
+    description: Technical and organisational safeguards; breach notification.
+  - id: publicity
+    description: Use of names, logos and announcements.
+
+  # --- rights ------------------------------------------------------------------
+  - id: intellectual_property
+    description: Ownership of background and foreground IP.
+  - id: licence_grant
+    description: Rights granted to use IP, and their scope and limits.
+
+  # --- risk --------------------------------------------------------------------
+  - id: warranties
+    description: Promises about quality, capacity or performance.
+  - id: representations
+    description: Statements of present fact relied on at signature.
+  - id: indemnity
+    description: One party covering another's defined losses.
+  - id: limitation_of_liability
+    description: Caps, exclusions and carve-outs.
+  - id: insurance
+    description: Cover a party must hold, and evidence of it.
+  - id: force_majeure
+    description: Relief for events outside a party's control.
+
+  # --- conduct -----------------------------------------------------------------
+  - id: compliance
+    description: Applicable law, sanctions, export control, modern slavery.
+  - id: anti_bribery
+    description: Anti-corruption and improper payments.
+  - id: audit_rights
+    description: Inspection of records, systems or premises.
+  - id: non_solicitation
+    description: Restrictions on hiring the other party's people.
+  - id: non_compete
+    description: Restrictions on competing activity.
+  - id: personnel
+    description: Key people, replacement and vetting.
+  - id: subcontracting
+    description: Use of third parties to perform obligations.
+
+  # --- the machinery -----------------------------------------------------------
+  - id: assignment
+    description: Transferring rights or obligations, and change of control.
+  - id: notices
+    description: How formal communications must be given, and to whom.
+  - id: governing_law
+    description: Which law governs the agreement.
+  - id: dispute_resolution
+    description: Jurisdiction, arbitration, escalation and mediation.
+  - id: entire_agreement
+    description: The document supersedes prior discussions.
+  - id: severability
+    description: An unenforceable provision does not void the rest.
+  - id: amendment
+    description: How the agreement may be changed.
+  - id: waiver
+    description: Not enforcing a right does not surrender it.
+  - id: third_party_rights
+    description: Whether non-parties may enforce anything.
+  - id: counterparts
+    description: Signing in separate copies.
+  - id: execution
+    description: Signature blocks and formalities.
+  - id: schedules
+    description: Annexures, exhibits and appendices, and their precedence.
+
+  # --- the escape hatch --------------------------------------------------------
+  - id: other
+    description: >
+      A clause that genuinely fits nothing above. Use `subcategory` to say what it is.
+      A rising share of `other` is a signal the taxonomy needs a reviewed addition — not
+      a reason to invent a category at classification time.

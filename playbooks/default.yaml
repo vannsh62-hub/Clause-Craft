@@ -1,0 +1,79 @@
+# The playbook: business rules a contract must satisfy.
+#
+# Each rule says: WHEN some facts hold, REQUIRE / FORBID / SET / FLAG something.
+# A rule states a condition — the contract language lives in the clause library, not
+# here. Edited through the app; validated on every save.
+
+rules:
+- id: gdpr-eu
+  kind: require_section
+  target: data_protection
+  when:
+  - field: jurisdiction
+    op: in
+    value:
+    - DE
+    - FR
+    - IE
+    - NL
+    - ES
+    - IT
+    - EU
+  reason: EU personal data is subject to the GDPR
+  blocking: true
+- id: dpdp-in
+  when:
+  - field: jurisdiction
+    op: eq
+    value: IN
+  kind: require_section
+  target: data_protection
+  reason: Indian personal data is subject to the DPDP Act 2023
+- id: ccpa-us-ca
+  when:
+  - field: jurisdiction
+    op: eq
+    value: US-CA
+  kind: require_section
+  target: data_protection
+  reason: California personal data is subject to the CCPA
+- id: software-payment-45
+  when:
+  - field: industry
+    op: eq
+    value: software
+  kind: set_value
+  target: payment_terms_days
+  value: '45'
+  reason: standard commercial payment terms for software
+- id: nda-confidentiality
+  when:
+  - field: contract_type
+    op: eq
+    value: nda
+  kind: require_section
+  target: confidentiality
+  reason: an NDA without a confidentiality clause is defective
+- id: sla-service-levels
+  when:
+  - field: contract_type
+    op: eq
+    value: sla
+  kind: require_section
+  target: service_levels
+  reason: an SLA must state measurable service levels
+- id: governing-law-always
+  when: []
+  kind: require_section
+  target: governing_law
+  reason: every contract must state its governing law
+- id: nda.notice
+  kind: set_value
+  target: notice period
+  when:
+  - field: jurisdiction
+    op: eq
+    value: Pune
+  value: 60 days
+  reason: notice period should be 2 months
+  blocking: true

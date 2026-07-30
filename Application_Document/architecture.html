@@ -1,0 +1,1016 @@
+<title>Clausecraft — Running System Dossier</title>
+
+<style>
+  /* ── Tokens ────────────────────────────────────────────────────────────────
+     Ground: a warm paper-neutral with a faint teal bias, so it belongs to the
+     product (globals.css --accent: #0f766e) rather than being generic grey.
+     Semantic colours (stop / flag / pass) are separate from the accent — they
+     encode gate outcomes and must never read as decoration.                   */
+  :root {
+    --ground:      #f5f7f6;
+    --sheet:       #ffffff;
+    --sheet-2:     #eef2f1;
+    --ink:         #0d1a18;
+    --ink-2:       #435654;
+    --ink-3:       #6e8481;
+    --rule:        #d9e3e1;
+    --rule-2:      #e9efee;
+    --accent:      #0f766e;
+    --accent-2:    #0b5d56;
+    --accent-wash: rgba(15,118,110,0.07);
+
+    --stop:        #a4162f;
+    --flag:        #8a5a06;
+    --pass:        #046b4a;
+    --stop-wash:   rgba(164,22,47,0.09);
+    --flag-wash:   rgba(138,90,6,0.11);
+    --pass-wash:   rgba(4,107,74,0.10);
+
+    --serif: ui-serif, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+    --sans:  system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    --mono:  ui-monospace, "SF Mono", SFMono-Regular, "Cascadia Mono", Menlo, Consolas, monospace;
+
+    --measure: 70ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground:      #091412;
+      --sheet:       #0f1c1a;
+      --sheet-2:     #162523;
+      --ink:         #e6f0ee;
+      --ink-2:       #a6bcb8;
+      --ink-3:       #7a908d;
+      --rule:        #223835;
+      --rule-2:      #1a2c2a;
+      --accent:      #5eead4;
+      --accent-2:    #99f6e4;
+      --accent-wash: rgba(94,234,212,0.09);
+      --stop:        #fb7185;
+      --flag:        #fbbf24;
+      --pass:        #4ade80;
+      --stop-wash:   rgba(251,113,133,0.12);
+      --flag-wash:   rgba(251,191,36,0.12);
+      --pass-wash:   rgba(74,222,128,0.12);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --ground:#f5f7f6; --sheet:#ffffff; --sheet-2:#eef2f1;
+    --ink:#0d1a18; --ink-2:#435654; --ink-3:#6e8481;
+    --rule:#d9e3e1; --rule-2:#e9efee;
+    --accent:#0f766e; --accent-2:#0b5d56; --accent-wash:rgba(15,118,110,0.07);
+    --stop:#a4162f; --flag:#8a5a06; --pass:#046b4a;
+    --stop-wash:rgba(164,22,47,0.09); --flag-wash:rgba(138,90,6,0.11); --pass-wash:rgba(4,107,74,0.10);
+  }
+  :root[data-theme="dark"] {
+    --ground:#091412; --sheet:#0f1c1a; --sheet-2:#162523;
+    --ink:#e6f0ee; --ink-2:#a6bcb8; --ink-3:#7a908d;
+    --rule:#223835; --rule-2:#1a2c2a;
+    --accent:#5eead4; --accent-2:#99f6e4; --accent-wash:rgba(94,234,212,0.09);
+    --stop:#fb7185; --flag:#fbbf24; --pass:#4ade80;
+    --stop-wash:rgba(251,113,133,0.12); --flag-wash:rgba(251,191,36,0.12); --pass-wash:rgba(74,222,128,0.12);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .shell { max-width: 1200px; margin: 0 auto; padding: 0 clamp(1.1rem,4vw,3rem) 6rem; }
+  @media (min-width: 1100px) {
+    .shell { display: grid; grid-template-columns: 196px minmax(0,1fr); gap: 3.5rem; }
+    .masthead, .colophon { grid-column: 1 / -1; }
+  }
+
+  /* ── Masthead ───────────────────────────────────────────────────────────── */
+  .masthead { padding: clamp(2.5rem,7vw,4.5rem) 0 2rem; border-bottom: 2px solid var(--ink); }
+  .kicker {
+    font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.16em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 1.2rem;
+  }
+  h1 {
+    font-family: var(--serif); font-weight: 600;
+    font-size: clamp(2.2rem,5.5vw,3.6rem); line-height: 1.05; letter-spacing: -0.02em;
+    text-wrap: balance; margin: 0 0 1rem;
+  }
+  .standfirst {
+    font-family: var(--serif); font-size: clamp(1.05rem,2vw,1.25rem); line-height: 1.55;
+    color: var(--ink-2); max-width: 56ch; margin: 0;
+  }
+  .vitals {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(112px,1fr));
+    gap: 1.25rem 2rem; margin-top: 2.25rem;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3);
+  }
+  .vitals div { display: flex; flex-direction: column; gap: 0.1rem; }
+  .vitals b { color: var(--ink); font-weight: 600; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+
+  /* ── Rail ───────────────────────────────────────────────────────────────── */
+  .rail { display: none; }
+  @media (min-width: 1100px) {
+    .rail {
+      display: block; position: sticky; top: 1.5rem; align-self: start; padding-top: 3rem;
+      font-family: var(--mono); font-size: 0.73rem; line-height: 1.45;
+    }
+    .rail ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.55rem; }
+    .rail a { color: var(--ink-3); text-decoration: none; display: block; }
+    .rail a:hover, .rail a:focus-visible { color: var(--accent); }
+    .rail .n { color: var(--rule); margin-right: 0.45rem; }
+  }
+
+  main { padding-top: 3rem; min-width: 0; }
+  section { margin-bottom: 4rem; scroll-margin-top: 1.5rem; }
+  .head { display: flex; align-items: baseline; gap: 0.85rem; margin-bottom: 1.35rem; }
+  .head .n { font-family: var(--mono); font-size: 0.76rem; color: var(--accent); padding-top: 0.3rem; font-variant-numeric: tabular-nums; }
+  h2 {
+    font-family: var(--serif); font-size: clamp(1.5rem,3.2vw,2rem); font-weight: 600;
+    line-height: 1.15; letter-spacing: -0.015em; margin: 0; text-wrap: balance;
+  }
+  h3 {
+    font-size: 0.82rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--ink-2); margin: 2.25rem 0 0.8rem;
+  }
+  p { max-width: var(--measure); margin: 0 0 1rem; }
+  .lede { font-size: 1.05rem; color: var(--ink-2); }
+  a { color: var(--accent); }
+  strong { font-weight: 650; color: var(--ink); }
+  code {
+    font-family: var(--mono); font-size: 0.85em; background: var(--sheet-2);
+    padding: 0.1em 0.38em; border-radius: 3px; color: var(--ink);
+  }
+
+  /* ── Diagram plate ──────────────────────────────────────────────────────── */
+  .plate {
+    background: #f8fbfa; border: 1px solid var(--rule); border-radius: 2px;
+    padding: 1.6rem 1rem; overflow-x: auto; margin-bottom: 0.7rem;
+  }
+  figure { margin: 0 0 2.25rem; }
+  figcaption { font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); line-height: 1.5; max-width: var(--measure); }
+
+  /* ── Tables ─────────────────────────────────────────────────────────────── */
+  .twrap { overflow-x: auto; border: 1px solid var(--rule); border-radius: 2px; margin-bottom: 1.5rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.86rem; min-width: 540px; background: var(--sheet); }
+  th {
+    text-align: left; font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--ink-3); font-weight: 500;
+    padding: 0.65rem 0.85rem; background: var(--sheet-2); border-bottom: 1px solid var(--rule); white-space: nowrap;
+  }
+  td { padding: 0.6rem 0.85rem; border-bottom: 1px solid var(--rule-2); color: var(--ink-2); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.f { font-family: var(--mono); font-size: 0.78rem; color: var(--ink); white-space: nowrap; }
+  td.n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--ink-3); text-align: right; white-space: nowrap; }
+
+  /* ── Status chips ───────────────────────────────────────────────────────── */
+  .chip {
+    display: inline-block; font-family: var(--mono); font-size: 0.66rem; letter-spacing: 0.05em;
+    text-transform: uppercase; padding: 0.12rem 0.45rem; border-radius: 2px; white-space: nowrap; font-weight: 600;
+  }
+  .chip-stop { background: var(--stop-wash); color: var(--stop); }
+  .chip-flag { background: var(--flag-wash); color: var(--flag); }
+  .chip-pass { background: var(--pass-wash); color: var(--pass); }
+  .chip-det  { background: var(--accent-wash); color: var(--accent); }
+
+  /* ── Stage spine ────────────────────────────────────────────────────────── */
+  .spine { display: flex; flex-direction: column; }
+  .stage {
+    display: grid; grid-template-columns: 3rem minmax(0,1fr); gap: 0 1rem;
+    padding: 1.05rem 0; border-top: 1px solid var(--rule-2);
+  }
+  .stage:last-child { border-bottom: 1px solid var(--rule-2); }
+  .stage-ord { font-family: var(--mono); font-size: 0.76rem; color: var(--accent); font-variant-numeric: tabular-nums; padding-top: 0.15rem; }
+  .stage-name { font-weight: 650; font-size: 0.98rem; margin: 0 0 0.25rem; }
+  .stage-body { max-width: var(--measure); color: var(--ink-2); font-size: 0.91rem; margin: 0 0 0.5rem; }
+  .meta { display: flex; flex-wrap: wrap; gap: 0.35rem 0.45rem; font-family: var(--mono); font-size: 0.7rem; }
+  .tag { border: 1px solid var(--rule); border-radius: 2px; padding: 0.08rem 0.4rem; color: var(--ink-3); white-space: nowrap; }
+  .tag-file { color: var(--ink-2); background: var(--sheet-2); border-color: transparent; }
+  .tag-art { color: var(--accent); border-color: var(--accent); }
+
+  /* ── Callouts ───────────────────────────────────────────────────────────── */
+  .note {
+    border-left: 2px solid var(--accent); background: var(--accent-wash);
+    padding: 0.9rem 1.1rem; margin-bottom: 1.4rem; max-width: var(--measure); font-size: 0.91rem;
+  }
+  .note p { margin: 0; max-width: none; }
+  .note p + p { margin-top: 0.55rem; }
+  .note b { display: block; margin-bottom: 0.15rem; }
+  .note-stop { border-left-color: var(--stop); background: var(--stop-wash); }
+
+  /* ── Mode split ─────────────────────────────────────────────────────────── */
+  .modes { display: grid; gap: 1.1rem; }
+  @media (min-width: 780px) { .modes { grid-template-columns: 1fr 1fr; } }
+  .mode {
+    border: 1px solid var(--rule); border-radius: 2px; background: var(--sheet);
+    padding: 1.2rem 1.3rem; display: flex; flex-direction: column; gap: 0.6rem;
+  }
+  .mode-tag { font-family: var(--mono); font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+  .mode h4 { font-family: var(--serif); font-size: 1.15rem; font-weight: 600; margin: 0; line-height: 1.2; }
+  .mode p { font-size: 0.88rem; color: var(--ink-2); margin: 0; max-width: none; }
+  .mode ol { margin: 0; padding-left: 1.05rem; font-size: 0.86rem; color: var(--ink-2); display: flex; flex-direction: column; gap: 0.32rem; }
+
+  .colophon {
+    border-top: 1px solid var(--rule); padding-top: 1.35rem;
+    font-family: var(--mono); font-size: 0.72rem; color: var(--ink-3); line-height: 1.7;
+  }
+  .colophon p { max-width: var(--measure); margin: 0; }
+
+
+  /* ── Flow diagram (pure CSS, so it renders offline in a local file) ─────── */
+  .flow { display: flex; flex-direction: column; gap: 0; min-width: 560px; font-size: 0.84rem; }
+  .band { border: 1px dashed var(--rule); border-radius: 3px; padding: 1.1rem 1.15rem 1.3rem; display: flex; flex-direction: column; align-items: center; gap: 0; position: relative; }
+  .band-label { position: absolute; top: -0.6rem; left: 0.9rem; background: #f8fbfa; padding: 0 0.45rem; font-family: var(--mono); font-size: 0.64rem; letter-spacing: 0.12em; text-transform: uppercase; color: #6e8481; }
+  .node { border: 1px solid #0f766e; border-radius: 3px; padding: 0.5rem 0.85rem; background: #ffffff; color: #0d1a18; text-align: center; display: flex; flex-direction: column; gap: 0.1rem; max-width: 30rem; }
+  .node b { font-weight: 650; }
+  .node span { font-size: 0.74rem; color: #435654; }
+  .node .dim { color: #6e8481; }
+  .node-io { border-style: solid; border-color: #6e8481; border-radius: 999px; }
+  .node-a { background: #eef2f1; }
+  .node-b { background: #ffffff; }
+  .node-p { background: #ffffff; border-color: #b7cfcb; font-size: 0.76rem; padding: 0.4rem 0.6rem; }
+  .node-p span { font-family: var(--mono); font-size: 0.64rem; color: #6e8481; }
+  .node-cko { background: #0f766e; color: #ffffff; border-color: #0f766e; font-weight: 650; letter-spacing: 0.01em; padding: 0.6rem 1.4rem; }
+  .node-out { min-width: 9.5rem; }
+  .out-pass { border-color: #046b4a; background: rgba(4,107,74,0.08); }
+  .out-flag { border-color: #8a5a06; background: rgba(138,90,6,0.09); }
+  .out-stop { border-color: #a4162f; background: rgba(164,22,47,0.07); }
+  .arr { width: 1px; height: 1.05rem; background: #9db4b0; position: relative; }
+  .arr::after { content: ""; position: absolute; bottom: -1px; left: -3px; border-left: 3.5px solid transparent; border-right: 3.5px solid transparent; border-top: 5px solid #9db4b0; }
+  .row { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; }
+  .aside { font-family: var(--mono); font-size: 0.66rem; color: #6e8481; margin-top: 0.3rem; text-align: center; max-width: 32rem; }
+  .boundary { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.9rem 0; position: relative; }
+  .boundary::before, .boundary::after { content: ""; position: absolute; left: 0; right: 0; height: 0; border-top: 2px solid #0f766e; }
+  .boundary::before { top: 0; }
+  .boundary::after { bottom: 0; }
+  .boundary-note { font-family: var(--mono); font-size: 0.64rem; color: #6e8481; }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="shell">
+
+  <header class="masthead">
+    <div class="kicker">Clausecraft · Running System Dossier · 23 July 2026</div>
+    <h1>What the engine actually does</h1>
+    <p class="standfirst">
+      A walkthrough of the code that is live right now: eleven stages, twelve artifacts, two
+      drafting modes, and the gates that decide whether a contract may exist.
+    </p>
+    <div class="vitals">
+      <div><span>Backend</span><b>13,288</b><span>lines · 131 files</span></div>
+      <div><span>Frontend</span><b>3,281</b><span>lines · 12 components</span></div>
+      <div><span>Tests</span><b>861</b><span>passing</span></div>
+      <div><span>Model agents</span><b>7</b><span>per full run</span></div>
+      <div><span>Artifacts</span><b>12</b><span>per Mode-2 run</span></div>
+      <div><span>API routes</span><b>23</b></div>
+    </div>
+  </header>
+
+  <nav class="rail" aria-label="Contents">
+    <ol>
+      <li><a href="#shape"><span class="n">01</span>System shape</a></li>
+      <li><a href="#run"><span class="n">02</span>A request, end to end</a></li>
+      <li><a href="#phase-a"><span class="n">03</span>Phase A · knowledge</a></li>
+      <li><a href="#cko"><span class="n">04</span>The CKO</a></li>
+      <li><a href="#phase-b"><span class="n">05</span>Phase B · drafting</a></li>
+      <li><a href="#modes"><span class="n">06</span>Two modes</a></li>
+      <li><a href="#gates"><span class="n">07</span>Gates: stop vs flag</a></li>
+      <li><a href="#stops"><span class="n">08</span>Stop conditions</a></li>
+      <li><a href="#artifacts"><span class="n">09</span>Artifact trail</a></li>
+      <li><a href="#surface"><span class="n">10</span>API &amp; data</a></li>
+      <li><a href="#files"><span class="n">11</span>Code map</a></li>
+      <li><a href="#invariants"><span class="n">12</span>Invariants</a></li>
+    </ol>
+  </nav>
+
+  <main>
+
+    <!-- ═══════════════════════════════════════════════════════ 01 ── SHAPE ── -->
+    <section id="shape">
+      <div class="head"><span class="n">01</span><h2>System shape</h2></div>
+
+      <p class="lede">
+        The engine is two halves joined by one object. <strong>Phase A</strong> works out what
+        the user wants and what every available source knows about it, and compresses that into
+        a single <strong>Contract Knowledge Object</strong>. <strong>Phase B</strong> reads only
+        that object and produces a document.
+      </p>
+      <p>
+        The split is the architecture. Phase B never sees the uploaded file, the clause library
+        or the playbook — if it needs a fact, that fact belongs in the CKO. A test asserts the
+        drafting engine's signature is exactly <code>(cko, ctx)</code>, because the failure it
+        prevents is someone adding <code>template=</code> under deadline and quietly ending the
+        two-phase design while the diagrams still show it.
+      </p>
+
+      <figure>
+        <div class="plate">
+          <div class="flow">
+
+            <div class="band">
+              <div class="band-label">Phase A · knowledge</div>
+
+              <div class="node node-io">Request <span class="dim">· optional .docx</span></div>
+              <div class="arr"></div>
+
+              <div class="node node-a"><b>00 · Intent Agent</b><span>type · parties · law · deal terms</span></div>
+              <div class="aside">asks when unsure — answers accumulate, capped at 3 rounds</div>
+              <div class="arr"></div>
+
+              <div class="node node-a"><b>01 · Source Resolver</b><span>who participates, in precedence order</span></div>
+              <div class="aside">no clauses and no template → asks consent once, then drafts from model knowledge</div>
+              <div class="arr"></div>
+
+              <div class="row">
+                <div class="node node-p">Playbook<span>1</span></div>
+                <div class="node node-p">Clause Library<span>2</span></div>
+                <div class="node node-p">Template<span>3</span></div>
+                <div class="node node-p">Reference<span>4</span></div>
+                <div class="node node-p">LLM floor<span>5</span></div>
+              </div>
+              <div class="arr"></div>
+
+              <div class="node node-a"><b>03 · Understanding</b><span>structure · metadata · classification — 3 agents in parallel, template mode only</span></div>
+              <div class="arr"></div>
+
+              <div class="node node-a"><b>04 · Aggregator</b><span>merge by precedence · record conflicts · pure</span></div>
+            </div>
+
+            <div class="boundary">
+              <div class="node node-cko">Contract Knowledge Object</div>
+              <div class="boundary-note">the only thing Phase B may read</div>
+            </div>
+
+            <div class="band">
+              <div class="band-label">Phase B · drafting</div>
+
+              <div class="node node-b"><b>05 · Draft Plan</b><span>what sections should exist</span></div>
+              <div class="arr"></div>
+              <div class="node node-b"><b>06 · Transformation Plan</b><span>KEEP / MODIFY / REMOVE / ADD</span></div>
+              <div class="arr"></div>
+              <div class="node node-b"><b>07 · Clause Recommendation</b><span>deterministic ranking</span></div>
+              <div class="arr"></div>
+              <div class="node node-b"><b>08 · Drafting Agent</b><span>clause text and recitals — the envelope is derived</span></div>
+              <div class="arr"></div>
+
+              <div class="row">
+                <div class="node node-b">09 · Legal validation</div>
+                <div class="node node-b">09 · Document validation</div>
+              </div>
+              <div class="arr"></div>
+
+              <div class="row">
+                <div class="node node-out out-pass">Finalized<span>both gates clean</span></div>
+                <div class="node node-out out-flag">Finalized · flagged<span>details to fill in</span></div>
+                <div class="node node-out out-stop">Blocked<span>draft kept · reasons given</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+        <figcaption>
+          Fig. 1 — The live run. Double arrows mark the phase boundary. Understanding runs only
+          when a template was uploaded; consent is asked only when neither approved clauses nor
+          a template back the draft.
+        </figcaption>
+      </figure>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════ 02 ── RUN ── -->
+    <section id="run">
+      <div class="head"><span class="n">02</span><h2>A request, end to end</h2></div>
+
+      <p>
+        The HTTP request never waits for a model. <code>POST /contracts</code> returns
+        <code>202</code> with a run id and a stream URL; the run lives in a background task that
+        owns the run row and the event log. A dropped connection, a proxy timeout or a refreshed
+        tab cannot abandon a run that is spending money.
+      </p>
+
+      <div class="spine">
+        <div class="stage">
+          <div class="stage-ord">1</div>
+          <div>
+            <p class="stage-name">Intake</p>
+            <p class="stage-body">
+              Request and uploads arrive. An upload marked <em>as template</em> is parsed
+              immediately and stored as a blob with a workspace pointer — a corrupt or
+              tracked-changes DOCX is refused while the user is still watching. Everything else
+              is extracted to text as a reference.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">api/routers/contracts.py</span>
+              <span class="tag tag-file">api/uploads.py</span>
+              <span class="tag tag-file">knowledge/providers/template.py</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">2</div>
+          <div>
+            <p class="stage-name">Launch</p>
+            <p class="stage-body">
+              A <code>Run</code> row is created and a background task starts. The runner is thin:
+              it maps an outcome to a run status and never touches the response.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">api/runner.py</span>
+              <span class="tag tag-file">api/pipeline_adapter.py</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">3</div>
+          <div>
+            <p class="stage-name">Pipeline</p>
+            <p class="stage-body">
+              Phase A then Phase B, emitting a stage event at each step. Control paths — a
+              question, a spent budget — return an outcome rather than raising; only a genuine
+              fault propagates.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">pipeline.py</span>
+              <span class="tag tag-art">stage events → SSE</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">4</div>
+          <div>
+            <p class="stage-name">Streaming</p>
+            <p class="stage-body">
+              Events are <em>persisted first, notified second</em>. A client reconnects with
+              <code>?seq=N</code> and replays the gap from Postgres, so a blip cannot lose an
+              event that was never written.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">api/events.py</span>
+              <span class="tag tag-file">api/routers/runs.py</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">5</div>
+          <div>
+            <p class="stage-name">Settlement</p>
+            <p class="stage-body">
+              The adapter records the contract type, mirrors the draft into the workspace where
+              the preview reads it, stamps the winning version finalized, sets the review flag
+              when placeholders remain, and emits the terminal event.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">api/pipeline_adapter.py</span>
+              <span class="tag tag-file">workspace/store.py</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Observed timings — live runs</h3>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Run</th><th class="n">Model calls</th><th class="n">Wall clock</th><th>Notes</th></tr></thead>
+          <tbody>
+            <tr><td>Mode 1 · SLA from scratch</td><td class="n">5</td><td class="n">~25 s</td><td>intent → plan → transform → draft → validate</td></tr>
+            <tr><td>Mode 1 · lease with placeholders</td><td class="n">5</td><td class="n">~30 s</td><td>finalized, 9 fill-in slots</td></tr>
+            <tr><td>Mode 2 · 134-para reseller template</td><td class="n">7</td><td class="n">~2 min</td><td>adds metadata, classification, understanding</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <b>Asking is a suspension, not a pause.</b>
+        <p>
+          No process blocks on a human. When a stage needs clarification it persists the
+          questions, commits, and raises — the run slice <em>ends</em>. Answering starts a new
+          run that folds every previous answer back into the request and re-enters Phase A. The
+          rule for callers is one line: commit what you need, then ask, and let the ask be the
+          last thing you do.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════ 03 ── PHASE A ── -->
+    <section id="phase-a">
+      <div class="head"><span class="n">03</span><h2>Phase A — building knowledge</h2></div>
+
+      <div class="spine">
+        <div class="stage">
+          <div class="stage-ord">00</div>
+          <div>
+            <p class="stage-name">Intent Agent</p>
+            <p class="stage-body">
+              Reads the request and reports what was asked for: contract type, parties, governing
+              law, purpose, and <strong>deal terms captured verbatim</strong> — the operative
+              numbers, which is the only route by which "99.9% uptime" reaches the drafter. Asks
+              when the model requested clarification or confidence is below 0.7. <em>Any</em>
+              contract type is accepted; there is no allow-list refusal.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/intent.py</span>
+              <span class="tag">gpt-4.1-mini · temp 0</span>
+              <span class="tag tag-art">00-intent.json</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">—</div>
+          <div>
+            <p class="stage-name">Consent gate</p>
+            <p class="stage-body">
+              Runs after resolution, when it is actually known whether approved clauses exist. If
+              neither the clause library nor a template backs the draft, the run stops once and
+              discloses: the wording will come from the model's own legal knowledge and has not
+              been reviewed. The decision is recorded in the workspace, so the resumed run — which
+              re-enters Phase A from the top — does not ask again.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/consent.py</span>
+              <span class="tag tag-art">consent/model-knowledge.json</span>
+              <span class="chip chip-det">no model</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">01</div>
+          <div>
+            <p class="stage-name">Knowledge Source Resolver</p>
+            <p class="stage-body">
+              Asks every registered provider whether it has anything for this run, then orders the
+              survivors by fixed precedence. A plan may <em>narrow</em> precedence but never
+              reorder it — precedence decides who wins a conflict, and that is policy, not a
+              per-run judgement.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/resolver.py</span>
+              <span class="chip chip-det">no model</span>
+              <span class="tag tag-art">01-resolution-plan.json</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">02</div>
+          <div>
+            <p class="stage-name">Providers contribute</p>
+            <p class="stage-body">
+              Each resolved provider returns a contribution in one shared vocabulary. The template
+              provider parses the DOCX into blocks with stable fingerprints; the reference
+              provider analyses documents into <em>knowledge</em>, never text to copy.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/gather.py</span>
+              <span class="tag tag-file">knowledge/providers/ ×5</span>
+              <span class="tag tag-art">02-template.json</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">03</div>
+          <div>
+            <p class="stage-name">Understanding engine — three agents, one parse</p>
+            <p class="stage-body">
+              Template mode only. Semantic structure, metadata and clause classification run
+              <em>in parallel</em> over a single parse. They return their objects; the caller
+              writes all three artifacts sequentially afterwards, because concurrent workspace
+              writes would contend on the same advisory lock.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/understanding.py</span>
+              <span class="tag">understanding · gpt-4.1</span>
+              <span class="tag">metadata · mini</span>
+              <span class="tag">classification · gpt-4.1</span>
+            </div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">04</div>
+          <div>
+            <p class="stage-name">Aggregator</p>
+            <p class="stage-body">
+              A pure function — no model, no I/O. Merges contributions by precedence. Where two
+              sources disagree it records <em>both</em> values and both provenances rather than
+              silently picking one.
+            </p>
+            <div class="meta">
+              <span class="tag tag-file">phase_a/aggregator.py</span>
+              <span class="tag tag-file">phase_a/build_cko.py</span>
+              <span class="chip chip-det">pure</span>
+              <span class="tag tag-art">04-cko.json</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h3>Precedence — who wins a conflict</h3>
+      <div class="twrap">
+        <table>
+          <thead><tr><th class="n">Rank</th><th>Source</th><th>Authority</th><th>Live stock</th></tr></thead>
+          <tbody>
+            <tr><td class="n">1</td><td class="f">playbook</td><td>Policy — non-negotiable requirements and prohibitions</td><td class="n">8 rules</td></tr>
+            <tr><td class="n">2</td><td class="f">clause_library</td><td>Counsel-approved text, versioned in git</td><td class="n">14 clauses</td></tr>
+            <tr><td class="n">3</td><td class="f">template</td><td>The uploaded document's structure and formatting</td><td class="n">per run</td></tr>
+            <tr><td class="n">4</td><td class="f">reference</td><td>Patterns and terminology — never text to copy</td><td class="n">per run</td></tr>
+            <tr><td class="n">5</td><td class="f">llm</td><td>The floor — what is known with no source at all</td><td class="n">always</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════════ 04 ── CKO ── -->
+    <section id="cko">
+      <div class="head"><span class="n">04</span><h2>The Contract Knowledge Object</h2></div>
+      <p>
+        Everything Phase A understood, in one versioned object: intent and its deal terms, the
+        resolution plan, semantic sections, metadata, clause candidates, playbook rules, a
+        formatting manifest, and provenance for each. It carries <code>schema_version</code> from
+        day one and ignores unknown fields, because the schema will be wrong at first and that
+        must not be a migration event.
+      </p>
+      <div class="note">
+        <b>The boundary is mechanical, not aspirational.</b>
+        <p>
+          <code>run_drafting_engine(cko, ctx)</code> takes one knowledge parameter. One test
+          asserts the parameter set is exactly <code>{cko, ctx}</code>; another walks the AST to
+          prove <code>phase_b/**</code> reaches Phase A only through the CKO schema, and that
+          neither phase imports an agent framework. Adding a CKO field is routine. Adding a Phase
+          B parameter is a design review.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═════════════════════════════════════════════════════ 05 ── PHASE B ── -->
+    <section id="phase-b">
+      <div class="head"><span class="n">05</span><h2>Phase B — drafting</h2></div>
+      <p>
+        Five stages in a load-bearing order. The transformation plan must exist before drafting,
+        and it must be a reasoned artifact rather than an afterthought.
+      </p>
+
+      <div class="spine">
+        <div class="stage">
+          <div class="stage-ord">05</div>
+          <div>
+            <p class="stage-name">Draft Planning Agent</p>
+            <p class="stage-body">Decides what sections the contract should have and why, before a word is written. Each records where it came from — library, playbook, or model.</p>
+            <div class="meta"><span class="tag tag-file">phase_b/planning.py</span><span class="tag">gpt-4.1-mini</span><span class="tag tag-art">05-draft-plan.json</span></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">06</div>
+          <div>
+            <p class="stage-name">Transformation Planning</p>
+            <p class="stage-body">
+              Classifies every section into <strong>KEEP / MODIFY / REMOVE / ADD</strong>. In
+              template mode a model decides, given the CKO alone. In generation mode there is no
+              source document to classify against, so the plan is <em>derived</em> from the draft
+              plan — every planned section becomes an ADD. That derivation is deliberate: asking a
+              model to classify sections that do not exist once lost seven of eight sections.
+            </p>
+            <div class="meta"><span class="tag tag-file">phase_b/planning.py</span><span class="tag">gpt-4.1 · temp 0</span><span class="tag tag-art">06-transformation-plan.json</span></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">07</div>
+          <div>
+            <p class="stage-name">Clause Recommendation</p>
+            <p class="stage-body">Retrieve → rank → recommend. A deterministic scoring function, no model. Records the chosen clause, the rejected alternatives, and why.</p>
+            <div class="meta"><span class="tag tag-file">phase_b/recommendation.py</span><span class="tag tag-file">invariants/ranking.py</span><span class="chip chip-det">deterministic</span></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">08</div>
+          <div>
+            <p class="stage-name">Drafting Agent → document</p>
+            <p class="stage-body">
+              Writes clause text and recitals only. Everything else a contract needs — title,
+              party block, execution page — is <em>fact</em> and is derived from the CKO. The
+              agent produces text, never a document: assembling and numbering is deterministic
+              code, because that has a right answer.
+            </p>
+            <div class="meta"><span class="tag tag-file">phase_b/drafting.py</span><span class="tag tag-file">phase_b/document.py</span><span class="tag tag-file">invariants/docx_build.py</span><span class="tag">gpt-4.1 · temp 0.2</span></div>
+          </div>
+        </div>
+        <div class="stage">
+          <div class="stage-ord">09</div>
+          <div>
+            <p class="stage-name">Legal &amp; Document validation</p>
+            <p class="stage-body">Two independent gates, both run, both persisted. Legal asks whether the contract is <em>correct</em>; document asks whether it is <em>well-formed</em>.</p>
+            <div class="meta"><span class="tag tag-file">phase_b/validation_legal.py</span><span class="tag tag-file">phase_b/validation_document.py</span><span class="tag tag-art">09-validation-*.json</span></div>
+          </div>
+        </div>
+      </div>
+
+      <h3>The document model</h3>
+      <p>
+        A contract is a tree, not a blob of Markdown. Only <code>clauses</code> are numbered —
+        Word computes <code>1.</code> → <code>1.1</code> → <code>(a)</code> → <code>(i)</code> from
+        an injected multilevel definition, so nothing types a number into text and inserting a
+        clause renumbers the rest automatically. Preamble, recitals and the signature block are
+        deliberately unnumbered; a numbered WHEREAS is the clearest tell that a machine assembled
+        the document.
+      </p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Part</th><th>Source</th><th>Numbered</th></tr></thead>
+          <tbody>
+            <tr><td>Title</td><td>contract type → display name</td><td><span class="chip chip-det">no</span></td></tr>
+            <tr><td>Preamble / party block</td><td>CKO parties + effective date</td><td><span class="chip chip-det">no</span></td></tr>
+            <tr><td>Recitals</td><td>drafting agent</td><td><span class="chip chip-det">no</span></td></tr>
+            <tr><td>Operative clauses</td><td>draft plan + drafting agent</td><td><span class="chip chip-pass">Word</span></td></tr>
+            <tr><td>Execution page</td><td>CKO parties</td><td><span class="chip chip-det">no</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ 06 ── MODES ── -->
+    <section id="modes">
+      <div class="head"><span class="n">06</span><h2>Two modes, one gate</h2></div>
+      <p class="lede">
+        The mode is read off the CKO — <code>source_storage_key</code> is present if and only if a
+        document was uploaded — never passed in as a flag.
+      </p>
+
+      <div class="modes">
+        <div class="mode">
+          <div class="mode-tag">Mode 1 · generation</div>
+          <h4>Built from the plan</h4>
+          <p>Nothing to preserve, so the document is assembled from the drafted sections in plan order.</p>
+          <ol>
+            <li>Draft plan names the sections.</li>
+            <li>Transformation derived — all ADD.</li>
+            <li>Agent writes clause text and recitals.</li>
+            <li><code>render_contract()</code> builds the DOCX with real Word numbering.</li>
+            <li>Both gates run.</li>
+          </ol>
+        </div>
+        <div class="mode">
+          <div class="mode-tag">Mode 2 · template</div>
+          <h4>The original, edited in place</h4>
+          <p>The uploaded document <em>is</em> the knowledge. It is edited from its own bytes — never regenerated.</p>
+          <ol>
+            <li>DOCX parsed into blocks with stable ids.</li>
+            <li>Understanding engine reads its meaning.</li>
+            <li>Transformation decides per block.</li>
+            <li><code>apply_transformation()</code> changes only MODIFY / REMOVE / ADD.</li>
+            <li>Fidelity check, then both gates.</li>
+          </ol>
+        </div>
+      </div>
+
+      <h3>Fidelity, measured on a real run</h3>
+      <p>A 134-paragraph reseller agreement, export compared to the original file:</p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Property</th><th class="n">Original</th><th class="n">Output</th><th>Reading</th></tr></thead>
+          <tbody>
+            <tr><td>Paragraph count</td><td class="n">134</td><td class="n">134</td><td>structure preserved</td></tr>
+            <tr><td>Numbering <code>w:numPr</code></td><td class="n">88</td><td class="n">86</td><td>only planned removals</td></tr>
+            <tr><td>Styles <code>w:pStyle</code></td><td class="n">124</td><td class="n">123</td><td>only planned changes</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <b>The export serves stored bytes.</b>
+        <p>
+          Phase B's DOCX is kept in blob storage, pointed at by
+          <code>contract_versions.docx_storage_key</code>. The export serves <em>those bytes</em>.
+          Regenerating from markdown at download time would discard the formatting the upload
+          existed to preserve — a perfect in-place edit thrown away at the last step.
+        </p>
+      </div>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ 07 ── GATES ── -->
+    <section id="gates">
+      <div class="head"><span class="n">07</span><h2>Gates — what stops, what flags</h2></div>
+      <p>
+        One path to a finished document, through both validators. The distinction that matters:
+        a <strong>blocker</strong> means the document is wrong; a <strong>flag</strong> means it is
+        incomplete but useful. A flagged draft still finalizes and downloads.
+      </p>
+
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Condition</th><th>Outcome</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Reference text copied verbatim</td><td><span class="chip chip-stop">blocks</span></td><td>attached documents are read for context, never reproduced</td></tr>
+            <tr><td>Required playbook section missing</td><td><span class="chip chip-stop">blocks</span></td><td>the contract is not the one policy required</td></tr>
+            <tr><td>Planned section absent from the draft</td><td><span class="chip chip-stop">blocks</span></td><td>caught a run that finalized 1 of 8 sections</td></tr>
+            <tr><td>KEEP section's formatting disturbed</td><td><span class="chip chip-stop">blocks</span></td><td>the Mode-2 promise, checked at the finish line</td></tr>
+            <tr><td>Upload carries tracked changes</td><td><span class="chip chip-stop">refused at intake</span></td><td>accepting mutates a legal document with no audit trail</td></tr>
+            <tr><td>Fill-in placeholders remain</td><td><span class="chip chip-flag">flags</span></td><td>a labelled gap is a legitimate first draft</td></tr>
+            <tr><td>Numbering gap · dangling cross-reference</td><td><span class="chip chip-flag">flags</span></td><td>worth a look, not worth refusing the document</td></tr>
+            <tr><td>Both reports clean</td><td><span class="chip chip-pass">finalized</span></td><td>stamped; only a stamped version can be exported</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <b>Placeholders were once a blocker. That was wrong.</b>
+        <p>
+          Refusing a draft because it contained <code>[MONTHLY RENT]</code> turned "draft a lease"
+          into a dead end — the opposite of what a drafting assistant is for. They are now a flag:
+          the draft finalizes, the version is marked for review, and the slots are listed by name
+          so the user knows exactly what to complete. What must never happen is a placeholder
+          shipped <em>silently</em>, and a finalized-but-flagged draft with its gaps named is the
+          opposite of silent.
+        </p>
+      </div>
+
+      <p>
+        The validators are <strong>framework-free</strong>. A test walks the import graph of
+        <code>backend/invariants/**</code> and fails if it imports <code>agents</code>,
+        <code>openai</code>, <code>langchain</code>, <code>langgraph</code> or
+        <code>deepagents</code>. The checks that decide whether a contract may exist cannot depend
+        on a model being in a good mood.
+      </p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ 08 ── STOPS ── -->
+    <section id="stops">
+      <div class="head"><span class="n">08</span><h2>Stop conditions</h2></div>
+      <p>
+        All enforced in code. A prompt asking an agent to stop is not a stop condition — the
+        engine learned this the hard way when an agent that kept reporting 30% confidence asked
+        the same question five times while the user kept answering.
+      </p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Setting</th><th class="n">Value</th><th>What it prevents</th></tr></thead>
+          <tbody>
+            <tr><td class="f">max_ask_rounds</td><td class="n">3</td><td>an endless question loop; counted from the ledger, since a suspension ends the process</td></tr>
+            <tr><td class="f">max_draft_attempts</td><td class="n">3</td><td>a redraft cycle that never converges</td></tr>
+            <tr><td class="f">max_turns</td><td class="n">40</td><td>a wedged agent burning turns</td></tr>
+            <tr><td class="f">intent_confidence_threshold</td><td class="n">0.70</td><td>drafting the wrong contract type confidently</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Answers <strong>accumulate</strong>. Every resume folds in every previously answered
+        round, each question paired with its answer, prefixed "treat these as established facts
+        and do not ask them again". Folding in only the latest round — which the engine once did —
+        discards everything the user already said, and is what makes a loop feel infinite.
+      </p>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════ 09 ── ARTIFACTS ── -->
+    <section id="artifacts">
+      <div class="head"><span class="n">09</span><h2>The artifact trail</h2></div>
+      <p>
+        Twelve typed artifacts, one canonical path each, written by a single store. The ordinal
+        prefixes are the run's real sequence — this is the explainability the architecture exists
+        for, inspectable over HTTP at <code>GET /contracts/{id}/artifacts</code>.
+      </p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th class="n">#</th><th>Path</th><th>Type</th><th>Written by</th></tr></thead>
+          <tbody>
+            <tr><td class="n">00</td><td class="f">work/00-intent.json</td><td>IntentObject</td><td>Intent Agent</td></tr>
+            <tr><td class="n">01</td><td class="f">work/01-resolution-plan.json</td><td>ResolutionPlan</td><td>Resolver</td></tr>
+            <tr><td class="n">02</td><td class="f">work/02-template.json</td><td>TemplateObject</td><td>Template Provider</td></tr>
+            <tr><td class="n">03</td><td class="f">work/03-understanding.json</td><td>SemanticStructure</td><td>Understanding Agent</td></tr>
+            <tr><td class="n">03</td><td class="f">work/03-metadata.json</td><td>ContractMetadata</td><td>Metadata Agent</td></tr>
+            <tr><td class="n">03</td><td class="f">work/03-clause-candidates.json</td><td>ClauseCandidateSet</td><td>Classification Agent</td></tr>
+            <tr><td class="n">04</td><td class="f">work/04-cko.json</td><td>ContractKnowledgeObject</td><td>Aggregator</td></tr>
+            <tr><td class="n">05</td><td class="f">work/05-draft-plan.json</td><td>DraftPlan</td><td>Draft Planning Agent</td></tr>
+            <tr><td class="n">06</td><td class="f">work/06-transformation-plan.json</td><td>TransformationPlan</td><td>Transformation Agent</td></tr>
+            <tr><td class="n">07</td><td class="f">work/07-clause-recommendations.json</td><td>ClauseRecommendationSet</td><td>Recommendation (no model)</td></tr>
+            <tr><td class="n">09</td><td class="f">work/09-validation-legal.json</td><td>GateReport</td><td>Legal Validator</td></tr>
+            <tr><td class="n">09</td><td class="f">work/09-validation-document.json</td><td>GateReport</td><td>Document Validator</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>A Mode-1 run produces 7 of these; a Mode-2 run produces all 12. The three <code>03-</code> artifacts share an ordinal because their agents ran concurrently.</p>
+    </section>
+
+    <!-- ════════════════════════════════════════════════════ 10 ── SURFACE ── -->
+    <section id="surface">
+      <div class="head"><span class="n">10</span><h2>API and data</h2></div>
+
+      <h3>Routes that matter</h3>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Route</th><th>Does</th></tr></thead>
+          <tbody>
+            <tr><td class="f">POST /contracts</td><td>start a run; <code>as_template</code> switches to Mode 2</td></tr>
+            <tr><td class="f">POST /contracts/replicate</td><td>N independent drafts from one upload, byte-identical sources</td></tr>
+            <tr><td class="f">POST /contracts/{id}/answers</td><td>answer and resume; accumulates every prior round</td></tr>
+            <tr><td class="f">GET /runs/{id}/events</td><td>SSE stream, resumable from <code>?seq=</code></td></tr>
+            <tr><td class="f">GET /contracts/{id}/artifacts</td><td>the typed artifact catalogue</td></tr>
+            <tr><td class="f">POST /contracts/{id}/export</td><td>serves the stored DOCX bytes</td></tr>
+            <tr><td class="f">GET/POST/PUT/DELETE /clauses</td><td>clause library CRUD through the engine's own loader</td></tr>
+            <tr><td class="f">GET/POST/PUT/DELETE /playbook/rules</td><td>structured playbook rule editing</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Persistence — 13 tables, migrations at <code>d7e2f9a1b3c4</code></h3>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Group</th><th>Tables</th></tr></thead>
+          <tbody>
+            <tr><td>Run</td><td class="f">contracts · runs · run_events · pending_questions · agent_todos</td></tr>
+            <tr><td>Output</td><td class="f">contract_versions · exports · judge_reports</td></tr>
+            <tr><td>Workspace</td><td class="f">workspace_files</td></tr>
+            <tr><td>Memory</td><td class="f">memory_facts · conversation_summaries</td></tr>
+            <tr><td>Extraction</td><td class="f">extracted_documents · extracted_clause_matches</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The workspace is a per-contract virtual filesystem in Postgres, with read-only prefixes
+        (<code>clauses/</code>, <code>skills/</code>, <code>playbooks/</code>) and advisory locks.
+        Binary documents live in blob storage; the workspace holds a small JSON pointer, because a
+        10 MB DOCX in a text column would be loaded by every listing that touches the row.
+      </p>
+    </section>
+
+    <!-- ═══════════════════════════════════════════════════════ 11 ── FILES ── -->
+    <section id="files">
+      <div class="head"><span class="n">11</span><h2>Code map</h2></div>
+      <p class="lede">131 backend modules, 13,288 lines. Where the weight actually sits.</p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Package</th><th class="n">Files</th><th class="n">Lines</th><th>Responsibility</th></tr></thead>
+          <tbody>
+            <tr><td class="f">invariants/</td><td class="n">15</td><td class="n">2,423</td><td>Deterministic truth — DOCX parse/edit/build/fidelity, validation, ranking, playbook rules, leakage. Imports no framework, by test.</td></tr>
+            <tr><td class="f">schemas/</td><td class="n">16</td><td class="n">1,410</td><td>Every typed object: CKO, intent, plans, document, validation, provider.</td></tr>
+            <tr><td class="f">api/routers/</td><td class="n">7</td><td class="n">1,182</td><td>HTTP surface — contracts, clauses, playbook, exports, runs, memory, extract.</td></tr>
+            <tr><td class="f">phase_b/</td><td class="n">8</td><td class="n">1,117</td><td>Drafting engine: planning, recommendation, drafting, document assembly, both validators, finalize.</td></tr>
+            <tr><td class="f">phase_a/</td><td class="n">8</td><td class="n">1,039</td><td>Knowledge: intent, consent, resolver, gather, understanding, aggregator, CKO build.</td></tr>
+            <tr><td class="f">tools/</td><td class="n">11</td><td class="n">1,016</td><td>Legacy orchestrator tool surface — superseded, still exercised by its own tests.</td></tr>
+            <tr><td class="f">api/</td><td class="n">7</td><td class="n">896</td><td>Runner, pipeline adapter, event stream, uploads, deps.</td></tr>
+            <tr><td class="f">workspace/</td><td class="n">3</td><td class="n">640</td><td>Models, the VFS store, the attempt ledger.</td></tr>
+            <tr><td class="f">knowledge/providers/</td><td class="n">5</td><td class="n">582</td><td>Template, clause library, playbook, reference, LLM floor.</td></tr>
+            <tr><td class="f">clauselib/</td><td class="n">3</td><td class="n">395</td><td>Strict loader, writer, serialisation for the approved library.</td></tr>
+            <tr><td class="f">runtime/</td><td class="n">4</td><td class="n">339</td><td>The execution port — agents as data, one adapter behind it.</td></tr>
+            <tr><td class="f">core/</td><td class="n">8</td><td class="n">320</td><td>Settings, run context, prompts, logging, principal.</td></tr>
+            <tr><td class="f">artifacts/</td><td class="n">2</td><td class="n">201</td><td>Artifact names and the only typed reader/writer.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        The frontend is a Next.js app — 12 components, 3,281 lines: the assistant with a live stage
+        timeline and document preview, the clause library table, the playbook rule editor with a
+        condition builder, tabular review, and the resumable SSE client.
+      </p>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════ 12 ── INVARIANTS ── -->
+    <section id="invariants">
+      <div class="head"><span class="n">12</span><h2>Invariants</h2></div>
+      <p>Each is enforced by a test that fails loudly, because each protects something easy to erode under deadline and expensive to restore.</p>
+      <div class="twrap">
+        <table>
+          <thead><tr><th>Rule</th><th>Enforced by</th></tr></thead>
+          <tbody>
+            <tr><td>Phase B takes one knowledge parameter</td><td class="f">test_phase_b_signature.py</td></tr>
+            <tr><td>No drafting without a transformation plan — checked before the runtime is touched</td><td class="f">test_transformation_precondition.py</td></tr>
+            <tr><td>A provider defined inside a test file participates fully</td><td class="f">test_provider_extensibility.py</td></tr>
+            <tr><td>Invariants import no agent framework</td><td class="f">test_invariants_are_llm_free.py</td></tr>
+            <tr><td>Phase B reaches Phase A only through the CKO schema</td><td class="f">test_phase_isolation.py</td></tr>
+            <tr><td>Reference text never reaches the draft</td><td class="f">test_reference_leakage.py</td></tr>
+            <tr><td>Structured output is identical across every shape</td><td class="f">test_runtime_port.py</td></tr>
+            <tr><td>The export serves stored bytes, not a regeneration</td><td class="f">test_template_intake_and_export.py</td></tr>
+            <tr><td>Clause numbering is Word's, never typed into text</td><td class="f">test_docx_build.py</td></tr>
+            <tr><td>Asking terminates; answers accumulate</td><td class="f">test_answer_accumulation.py · test_intent.py</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note note-stop">
+        <b>Two things the design will not trade.</b>
+        <p>
+          <strong>Never invent a fact about the deal.</strong> Not a party, a date, a fee or a
+          term. Values the user states are captured at intent time and carried through the CKO to
+          the drafter; a value that is missing becomes a question, or a labelled placeholder —
+          never a plausible guess.
+        </p>
+        <p>
+          <strong>The tools are authoritative over correctness.</strong> There is no path to a
+          document that goes around the gates — not through an agent, not through an HTTP client.
+          A draft that fails is retained and explained, but it is not stamped.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="colophon">
+    <p>
+      Clausecraft engine · Phase A / Phase B pipeline live behind <code>POST /contracts</code> ·
+      every figure in this document verified against the working tree on 23 July 2026
+      (861 tests passing, ruff and mypy clean, migrations at <code>d7e2f9a1b3c4</code>).
+      The legacy single-orchestrator path in <code>backend/subagents/</code> is superseded and no
+      longer on the request path.
+    </p>
+  </footer>
+
+</div>
