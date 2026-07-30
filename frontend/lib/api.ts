@@ -401,6 +401,58 @@ export async function suggestClauseEdit(
   );
 }
 
+export type NegotiationPerspective = "vendor" | "neutral" | "client";
+
+export interface ClauseSuggestion {
+  text: string;
+  rationale: string;
+}
+
+export interface ClauseAnalytics {
+  words: number;
+  reading_time_seconds: number;
+  readability: string;
+  variables: number;
+  cross_references: number;
+  ai_suggestions: number;
+}
+
+export interface ClauseAnalysis {
+  title: string;
+  risk: "low" | "medium" | "high";
+  risk_reason: string;
+
+  summary: string;
+  plain_english: string;
+  business_purpose: string;
+  negotiation_tips: string;
+  common_alternatives: string;
+  potential_problems: string;
+
+  depends_on: string[];
+  referenced_by: string[];
+  cross_references: string[];
+
+  variables_unresolved: string[];
+
+  suggestions: ClauseSuggestion[];
+
+  analytics: ClauseAnalytics;
+}
+
+export interface ContractFinding {
+  ok: boolean;
+  text: string;
+  clause_title?: string;
+}
+
+export interface ContractAnalysis {
+  health_score: number;
+  findings: ContractFinding[];
+  clauses: ClauseAnalysis[];
+  missing_clauses: string[];
+}
+
 export interface ClauseActionOut {
   action: "insert" | "replace" | "remove" | "fill" | string;
   clause_title: string;
