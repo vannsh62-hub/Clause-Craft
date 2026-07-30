@@ -331,6 +331,27 @@ export async function analyseClauseFields(
   );
 }
 
+/**
+ * Run the shared Contract Intelligence Engine over the current document. One call powers
+ * the health card, risk borders, outline, suggestion cards, and Explain popover — callers
+ * should fetch this once per document version and pass slices of the result down, never
+ * call this per-widget. Server-side cached by content hash, so repeat calls for an
+ * unchanged document/perspective are cheap.
+ */
+export async function analyzeContract(
+  contractId: string,
+  document: string,
+  perspective: NegotiationPerspective = "neutral",
+): Promise<ContractAnalysis> {
+  return json(
+    await fetch(`${BASE}/contracts/${contractId}/intelligence`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ document, perspective }),
+    }),
+  );
+}
+
 export interface ClauseFillResult {
   suggestions: Record<string, string>;
   unresolved: string[];

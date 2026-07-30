@@ -49,7 +49,9 @@ from backend.artifacts import Artifact
 from backend.clauselib.loader import ClauseLibraryError, get_clause
 from backend.core.variable_aliases import resolve_variables
 from backend.invariants.render import render_clause
+from backend.phase_b import intelligence as intelligence_engine
 from backend.schemas.errors import WorkspaceError
+from backend.schemas.intelligence import ContractAnalysisOut, ContractAnalysisRequest
 from backend.workspace.models import AgentTodo, Contract, ContractVersion, PendingQuestion
 from backend.workspace.store import WorkspaceStore
 
@@ -608,7 +610,41 @@ async def update_contract_variables(
     merged = {**(contract.variables or {}), **normalized}
     contract.variables = merged
     await session.commit()
+    intelligence_engine.invalidate_cache()  # variables feed clause "unresolved" analytics
     return ContractVariablesResponse(variables=resolve_variables(merged))
+
+
+@router.post("/{contract_id}/intelligence", response_model=ContractAnalysisOut)
+async def analyze_contract_intelligence(
+    contract_id: uuid.UUID,
+    body: ContractAnalysisRequest,
+    session: AsyncSession = Depends(get_session),
+) -> ContractAnalysisOut:
+    """The single shared Contract Intelligence Engine call.
+
+    Every intelligence widget (health card, outline, risk borders, suggestion cards,
+    Explain popover, relationships) reads its slice of this one response — never a
+    per-widget analysis. Cached in-process by content hash of (document, perspective),
+    so calling this repeatedly for an unchanged document/perspective never re-triggers
+    the model call; the cache is invalidated whenever the document or variables change
+    (edit, insert, remove, fill, variable update) via `intelligence.invalidate_cache`.
+    """
+    contract = await _get_contract(session, contract_id)
+
+    from backend.core.run_context import RunContext
+
+    ctx = RunContext(
+        contract_id=contract.id,
+        session_factory=get_session_factory(),
+        contract_type=contract.contract_type,
+        jurisdiction=contract.jurisdiction,
+    )
+    try:
+        return await intelligence_engine.analyze(
+            body.document, body.perspective, contract.variables or {}, ctx
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not analyze contract: {exc}") from exc
 
 
 #: A fill-suggestion call this size would be a bug in the caller, not a legitimate ask —

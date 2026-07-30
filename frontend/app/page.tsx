@@ -8,6 +8,8 @@ import { ClauseEditModal } from "@/components/Clauseeditmodal";
 import { ClauseRemoveConfirm } from "@/components/ClauseRemoveConfirm";
 import { ClauseFillDetailsModal } from "@/components/Clausefilldetailsmodal";
 import { DocumentFillDetailsModal } from "@/components/DocumentFillDetailsModal";
+import { ContractIntelligencePanel, openClauseExplain, riskColor } from "@/components/ContractIntelligencePanel";
+import { analyzeContract, type ContractAnalysis, type NegotiationPerspective } from "@/lib/api";
 import {
   clauseSectionAt as sharedClauseSectionAt,
   findClauseByTitle,
@@ -154,6 +156,9 @@ export default function Page() {
   const [removeClauseTarget, setRemoveClauseTarget] = useState<ClauseSection | null>(null);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const [fillAllOpen, setFillAllOpen] = useState(false);
+  const [intel, setIntel] = useState<ContractAnalysis | null>(null);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [perspective, setPerspective] = useState<NegotiationPerspective>("neutral");
   const [removing, setRemoving] = useState(false);
   // Colab-style hover toolbar (Preview mode only): which clause's box is currently
   // hovered/highlighted. Re-derived from `markdown` on every render via
@@ -230,6 +235,31 @@ export default function Page() {
   useEffect(() => {
     if (phase === "done" || phase === "failed") refreshContracts();
   }, [phase, refreshContracts]);
+
+  // Contract Intelligence Engine: one debounced fetch per document version, shared by every
+  // widget (health card, outline, risk borders, suggestions, explain). Never fires on every
+  // keystroke — waits 900ms after the document or perspective settles, and the backend also
+  // caches by content hash so a repeat call for the same document is free.
+  useEffect(() => {
+    if (!contractId || phase !== "done" || !markdown) {
+      setIntel(null);
+      return;
+    }
+    const doc = markdown;
+    const handle = setTimeout(() => {
+      setIntelLoading(true);
+      analyzeContract(contractId, doc, perspective)
+        .then(setIntel)
+        .catch(() => setIntel(null))
+        .finally(() => setIntelLoading(false));
+    }, 900);
+    return () => clearTimeout(handle);
+  }, [contractId, phase, markdown, perspective]);
+
+  function scrollToClauseTitle(title: string) {
+    const el = document.querySelector(`[data-clause-title="${CSS.escape(title)}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
 
   // Opens the block menu at (x, y) for the [start, end) block, resolving which clause
   // section (if any) the click landed in exactly once — so Edit/Fill/Remove all act on the
@@ -1452,11 +1482,25 @@ export default function Page() {
                                 >
                                   Remove
                                 </button>
+                                <button
+                                  type="button"
+                                  title="Explain this clause"
+                                  className="px-2 py-1 rounded-full hover:bg-[color:var(--surface-strong)]"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openClauseExplain(section.title);
+                                  }}
+                                >
+                                  ✨ Explain
+                                </button>
                               </div>
                             );
+                            const risk = intel?.clauses.find((c) => c.title === section.title)?.risk;
                             return (
                               <div
                                 key={section.instanceId}
+                                data-clause-title={section.title}
+                                style={risk ? { borderLeft: `3px solid ${riskColor(risk)}` } : undefined}
                                 className={`clause-block relative rounded-2xl -mx-3 px-3 py-1 transition-colors ${
                                   hovered
                                     ? "ring-2 ring-[color:var(--accent)] bg-[rgba(15,118,110,0.04)]"
@@ -1479,6 +1523,19 @@ export default function Page() {
                 )}
               </div>
             </div>
+          )}
+
+          {/* Contract Intelligence — Health Score, Outline, Risk Heatmap, Suggestions,
+              Negotiation Mode, Explain. One shared analysis (`intel`) for every widget. */}
+          {phase === "done" && markdown && (
+            <ContractIntelligencePanel
+              analysis={intel}
+              loading={intelLoading}
+              perspective={perspective}
+              onPerspectiveChange={setPerspective}
+              onScrollToClause={scrollToClauseTitle}
+              onGenerateMissingClause={() => setAssistantOpen(true)}
+            />
           )}
 
           {/* Generated docx Download Card — for any finalized draft. Sits right after
