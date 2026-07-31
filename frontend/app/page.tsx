@@ -10,14 +10,19 @@ import { ClauseFillDetailsModal } from "@/components/Clausefilldetailsmodal";
 import { DocumentFillDetailsModal } from "@/components/DocumentFillDetailsModal";
 import {
   ContractOutlineSidebar,
-  ContractIntelligenceSidebar,
   ClauseSuggestionCards,
   ClauseAnalyticsFooter,
   ClauseExplainPopover,
   openClauseExplain,
   riskColor,
+  HealthPanelContent,
+  RiskPanelContent,
+  AnalyticsPanelContent,
+  SuggestionsPanelContent,
+  NegotiationPanelContent,
+  RelationshipsGraph,
 } from "@/components/ContractIntelligencePanel";
-import { analyzeContract, type ContractAnalysis, type NegotiationPerspective } from "@/lib/api";
+import { analyzeContract, suggestClauseEdit, type ContractAnalysis, type ClauseSuggestion, type NegotiationPerspective } from "@/lib/api";
 import {
   clauseSectionAt as sharedClauseSectionAt,
   findClauseByTitle,
@@ -109,6 +114,27 @@ const FillIcon = () => (
   </svg>
 );
 
+// The one reusable sidebar content shell — same "assistant-panel flex flex-col h-full"
+// root, header row, and scrollable body as AssistantPanel's own markup. Every document-level
+// mode (Outline, Suggestions, Health, Risks, Analytics, Relationships, Negotiation) renders
+// through this; Assistant mode renders AssistantPanel directly instead, since it already
+// has this exact same header/body/footer shape. Both are mounted inside the single outer
+// fixed-position wrapper below (see the `sidebarMode` portal in Page) — there is only ever
+// one sidebar element in the DOM.
+function SidePanel({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="assistant-panel flex flex-col h-full" role="complementary" aria-label={title}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-[color:var(--border,rgba(0,0,0,0.08))]">
+        <div className="text-sm font-semibold text-[color:var(--text)]">{title}</div>
+        <button type="button" className="playbook-close" aria-label="Close" onClick={onClose}>
+          ×
+        </button>
+      </div>
+      <div className="flex-1 min-h-0 overflow-auto px-4 py-3">{children}</div>
+    </div>
+  );
+}
+
 export default function Page() {
   const [phase, setPhase] = useState<Phase>("idle");
   const [request, setRequest] = useState(EXAMPLE);
@@ -162,7 +188,15 @@ export default function Page() {
   const [editClauseTarget, setEditClauseTarget] = useState<ClauseSection | null>(null);
   const [fillClauseTarget, setFillClauseTarget] = useState<ClauseSection | null>(null);
   const [removeClauseTarget, setRemoveClauseTarget] = useState<ClauseSection | null>(null);
-  const [assistantOpen, setAssistantOpen] = useState(false);
+  // The one document-level sidebar. Only ever one mode active at a time — clicking another
+  // toolbar button while the sidebar is open swaps its content in place rather than closing
+  // and reopening a different panel (see SidePanel below, which is the single implementation
+  // every mode renders through, including "assistant").
+  type SidebarMode = "assistant" | "outline" | "suggestions" | "health" | "risks" | "analytics" | "relationships" | "negotiation";
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode | null>(null);
+  function toggleSidebar(mode: SidebarMode) {
+    setSidebarMode((cur) => (cur === mode ? null : mode));
+  }
   const [fillAllOpen, setFillAllOpen] = useState(false);
   const [intel, setIntel] = useState<ContractAnalysis | null>(null);
   const [intelLoading, setIntelLoading] = useState(false);
@@ -183,6 +217,20 @@ export default function Page() {
   // newer removal. Holding the full previous doc (not a diff) keeps the restore trivial and
   // correct regardless of what renumbering/splicing happened.
   const undoSnapshotRef = useRef<{ markdown: string | null; editedMarkdown: string } | null>(null);
+  // Which suggestion is currently being applied ("<clause title>::<index>"), for the
+  // per-card Accept button's loading state — prevents double-submits and lets the card
+  // show a spinner instead of the button just doing nothing while the request is in flight.
+  const [acceptingSuggestionKey, setAcceptingSuggestionKey] = useState<string | null>(null);
+  // Title of the clause most recently rewritten by an accepted suggestion — drives the
+  // brief green "just updated" fade highlight on that clause block. Cleared automatically
+  // a few seconds later.
+  const [justUpdatedClauseTitle, setJustUpdatedClauseTitle] = useState<string | null>(null);
+  const justUpdatedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    return () => {
+      if (justUpdatedTimerRef.current) clearTimeout(justUpdatedTimerRef.current);
+    };
+  }, []);
   // Tracks what's actually persisted server-side, so the autosave effect below only fires on
   // genuine edits (clause insert/remove/fill, WYSIWYG "Done") rather than on the initial
   // setMarkdown() from loadPreview, or after an autosave has just resolved.
@@ -391,8 +439,8 @@ export default function Page() {
   }
 
   const markdownComponents: Record<string, React.ComponentType<any>> = {
-    h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-[32px] font-bold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
+    h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
+    h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     h3: ({ node, ...props }) => <h3 className="doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     p: ({ node, ...props }) => <p className="doc-paragraph mt-4 leading-8 text-sm text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
@@ -521,6 +569,61 @@ export default function Page() {
     setEditedMarkdown(next);
     setEditClauseTarget(null);
     toast.success("Clause updated.");
+  }
+
+  // Accepting an AI Suggestion (Copilot-style): rewrites the clause via the same AI-edit
+  // endpoint and splice+renumber path as the manual "Edit clause" flow — the suggestion's
+  // own text becomes the instruction, and the clause's current markdown is re-resolved by
+  // title right before splicing (rather than trusting stale offsets), since suggestions can
+  // sit on screen a while after the document last changed. Structured op types (append/
+  // replace/insert_after_sentence) are the eventual backend contract; until the analysis
+  // endpoint emits them, going through suggestClauseEdit keeps this on the one clause-rewrite
+  // code path the rest of the app already trusts, instead of a second string-splicing rule.
+  async function acceptClauseSuggestion(clauseTitle: string, suggestion: ClauseSuggestion, index: number) {
+    const key = `${clauseTitle}::${index}`;
+    if (acceptingSuggestionKey) return;
+    const doc = editing ? editedMarkdown : markdown;
+    if (doc == null || !contractId) return;
+    const target = findClauseByTitle(doc, clauseTitle);
+    if (target === "ambiguous") {
+      toast.error(`"${clauseTitle}" matches more than one clause — rename one first.`);
+      return;
+    }
+    if (target === null) {
+      toast.error(`Couldn't find "${clauseTitle}" — it may have changed. Reopen and try again.`);
+      return;
+    }
+    setAcceptingSuggestionKey(key);
+    try {
+      const result = await suggestClauseEdit(contractId, target.markdown, suggestion.text);
+      const resolved = resolveKnownPlaceholders(result.updated_clause, contractVariables);
+      const next = sharedRenumberClauseHeadings(sharedReplaceClauseSection(doc, target.instanceId, resolved));
+      undoSnapshotRef.current = { markdown, editedMarkdown };
+      setMarkdown(next);
+      setEditedMarkdown(next);
+
+      if (justUpdatedTimerRef.current) clearTimeout(justUpdatedTimerRef.current);
+      setJustUpdatedClauseTitle(clauseTitle);
+      justUpdatedTimerRef.current = setTimeout(() => setJustUpdatedClauseTitle(null), 2600);
+
+      toast.success("Suggestion applied.", {
+        action: {
+          label: "Undo",
+          onClick: () => {
+            const snapshot = undoSnapshotRef.current;
+            if (!snapshot) return;
+            setMarkdown(snapshot.markdown);
+            setEditedMarkdown(snapshot.editedMarkdown);
+            undoSnapshotRef.current = null;
+            setJustUpdatedClauseTitle(null);
+          },
+        },
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Couldn't apply that suggestion.");
+    } finally {
+      setAcceptingSuggestionKey(null);
+    }
   }
 
   // Applying Fill-details replaces only the targeted clause, same splice+renumber+staleness
@@ -1315,14 +1418,40 @@ export default function Page() {
               Intelligence (right) — the right sidebar is always visible once a document
               exists, sharing the single `intel` analysis fetched below. */}
           {phase === "done" && markdown && (
-            <div className="workspace-grid mt-8 max-w-[1800px] mx-auto">
-              <ContractOutlineSidebar analysis={intel} onScrollToClause={scrollToClauseTitle} />
+            <div className="mt-8 max-w-6xl mx-auto">
 
           {/* Document Preview Card — scrollable, and editable with clause insertion */}
-            <div className="glass-panel overflow-hidden min-w-0">
+            <div className="glass-panel overflow-hidden">
               <div className="border-b border-[color:var(--border)] px-5 py-4 bg-[color:var(--surface-muted)] flex justify-between items-center gap-3 flex-wrap">
                 <h3 className="font-semibold text-sm">Document Preview</h3>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {(
+                    [
+                      { key: "outline", icon: "📑", label: "Outline" },
+                      { key: "suggestions", icon: "💡", label: "Suggestions" },
+                      { key: "health", icon: "❤️", label: "Health" },
+                      { key: "risks", icon: "⚠", label: "Risks" },
+                      { key: "analytics", icon: "📊", label: "Analytics" },
+                      { key: "relationships", icon: "🔗", label: "Relationships" },
+                      { key: "negotiation", icon: "🤝", label: "Negotiation" },
+                    ] as { key: SidebarMode; icon: string; label: string }[]
+                  ).map(({ key, icon, label }) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => toggleSidebar(key)}
+                      aria-pressed={sidebarMode === key}
+                      className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5 ${
+                        sidebarMode === key
+                          ? "border-[color:var(--accent-soft)] text-[color:var(--accent-strong)] bg-[color:var(--accent-soft)]"
+                          : "border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-strong)]"
+                      }`}
+                    >
+                      <span aria-hidden>{icon}</span>
+                      {label}
+                    </button>
+                  ))}
+                  <span className="w-px self-stretch bg-[color:var(--border)] mx-0.5" />
                   {editing && (
                     <button
                       type="button"
@@ -1334,10 +1463,10 @@ export default function Page() {
                   )}
                   <button
                     type="button"
-                    onClick={() => setAssistantOpen((v) => !v)}
-                    aria-pressed={assistantOpen}
+                    onClick={() => toggleSidebar("assistant")}
+                    aria-pressed={sidebarMode === "assistant"}
                     className={`text-xs font-semibold px-3 py-1 rounded-full border transition-colors flex items-center gap-1.5 ${
-                      assistantOpen
+                      sidebarMode === "assistant"
                         ? "border-[color:var(--accent-soft)] text-[color:var(--accent-strong)] bg-[color:var(--accent-soft)]"
                         : "border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-strong)]"
                     }`}
@@ -1394,9 +1523,9 @@ export default function Page() {
 
               {/* The document scrolls inside a fixed-height panel — the page no longer grows
                   with the contract. */}
-              <div className="p-6 sm:p-10 bg-[color:var(--surface-muted)] doc-preview-scroll">
+              <div className="p-4 sm:p-6 bg-[color:var(--surface-muted)] doc-preview-scroll">
                 {editing ? (
-                  <div className="doc-paper mx-auto w-full max-w-[880px] rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-10 sm:p-14" style={{ minHeight: "60vh" }}>
+                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" style={{ minHeight: "60vh" }}>
                     {parseEditBlocks(editedMarkdown).map((block) => {
                       const shared = {
                         contentEditable: true,
@@ -1408,9 +1537,9 @@ export default function Page() {
                           "outline-none rounded-md px-1 -mx-1 cursor-text hover:bg-[rgba(15,118,110,0.04)] focus:bg-[rgba(15,118,110,0.06)]",
                       };
                       if (block.kind === "h1")
-                        return <h1 key={block.start} {...shared} className={`doc-heading mt-0 text-[32px] font-bold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h1>;
+                        return <h1 key={block.start} {...shared} className={`doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h1>;
                       if (block.kind === "h2")
-                        return <h2 key={block.start} {...shared} className={`doc-heading mt-8 text-2xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h2>;
+                        return <h2 key={block.start} {...shared} className={`doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h2>;
                       if (block.kind === "h3")
                         return <h3 key={block.start} {...shared} className={`doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h3>;
                       if (block.kind === "blockquote")
@@ -1419,7 +1548,7 @@ export default function Page() {
                     })}
                   </div>
                 ) : (
-                  <div className="doc-paper mx-auto w-full max-w-[880px] rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-10 sm:p-14" onMouseLeave={() => setHoveredClauseId(null)}>
+                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" onMouseLeave={() => setHoveredClauseId(null)}>
                     {(() => {
                       const sections = parseClauseSections(markdown);
                       const preamble = markdown.slice(0, sections[0]?.start ?? markdown.length);
@@ -1520,14 +1649,19 @@ export default function Page() {
                                   hovered
                                     ? "ring-2 ring-[color:var(--accent)] bg-[rgba(15,118,110,0.04)]"
                                     : "ring-1 ring-transparent"
-                                }`}
+                                } ${justUpdatedClauseTitle === section.title ? "clause-just-updated" : ""}`}
                                 onMouseEnter={() => setHoveredClauseId(section.instanceId)}
                               >
                                 {hovered && renderToolbar("top")}
                                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                   {section.markdown}
                                 </ReactMarkdown>
-                                <ClauseSuggestionCards clause={clauseIntel} />
+                                <ClauseSuggestionCards
+                                  clause={clauseIntel}
+                                  onAccept={(s, i) => acceptClauseSuggestion(section.title, s, i)}
+                                  acceptingKey={acceptingSuggestionKey}
+                                  clauseTitle={section.title}
+                                />
                                 <ClauseAnalyticsFooter clause={clauseIntel} />
                                 {hovered && renderToolbar("bottom")}
                               </div>
@@ -1540,15 +1674,6 @@ export default function Page() {
                 )}
               </div>
             </div>
-
-              <ContractIntelligenceSidebar
-                analysis={intel}
-                loading={intelLoading}
-                perspective={perspective}
-                onPerspectiveChange={setPerspective}
-                onScrollToClause={scrollToClauseTitle}
-                onGenerateMissingClause={() => setAssistantOpen(true)}
-              />
             </div>
           )}
 
@@ -1697,16 +1822,61 @@ export default function Page() {
         </div>
       </section>
 
-      {assistantOpen &&
+      {sidebarMode &&
         typeof document !== "undefined" &&
         createPortal(
           <div className="fixed right-0 top-0 bottom-0 w-[380px] max-w-[90vw] z-50 bg-[color:var(--surface-strong,#fff)] border-l border-[color:var(--border,rgba(0,0,0,0.08))] shadow-xl">
-            <AssistantPanel
-              contractId={contractId ?? undefined}
-              getDocument={() => (editing ? editedMarkdown : markdown) ?? ""}
-              onApplyAction={applyClauseAction}
-              onClose={() => setAssistantOpen(false)}
-            />
+            {sidebarMode === "assistant" ? (
+              <AssistantPanel
+                contractId={contractId ?? undefined}
+                getDocument={() => (editing ? editedMarkdown : markdown) ?? ""}
+                onApplyAction={applyClauseAction}
+                onClose={() => setSidebarMode(null)}
+              />
+            ) : (
+              <SidePanel
+                title={
+                  {
+                    outline: "📑 Contract Outline",
+                    suggestions: "💡 AI Suggestions",
+                    health: "❤️ Contract Health",
+                    risks: "⚠ Risk Heatmap",
+                    analytics: "📊 Analytics",
+                    relationships: "🔗 Relationships",
+                    negotiation: "🤝 Negotiation",
+                  }[sidebarMode]
+                }
+                onClose={() => setSidebarMode(null)}
+              >
+                {sidebarMode === "outline" && (
+                  <ContractOutlineSidebar analysis={intel} onScrollToClause={scrollToClauseTitle} embedded />
+                )}
+                {sidebarMode === "suggestions" && (
+                  <SuggestionsPanelContent
+                    analysis={intel}
+                    onScrollToClause={scrollToClauseTitle}
+                    onAcceptSuggestion={(title, s, i) => acceptClauseSuggestion(title, s, i)}
+                    acceptingKey={acceptingSuggestionKey}
+                  />
+                )}
+                {sidebarMode === "health" && (
+                  <HealthPanelContent
+                    analysis={intel}
+                    loading={intelLoading}
+                    onScrollToClause={scrollToClauseTitle}
+                    onGenerateMissingClause={() => setSidebarMode("assistant")}
+                  />
+                )}
+                {sidebarMode === "risks" && <RiskPanelContent analysis={intel} onScrollToClause={scrollToClauseTitle} />}
+                {sidebarMode === "analytics" && <AnalyticsPanelContent analysis={intel} />}
+                {sidebarMode === "relationships" && (
+                  <RelationshipsGraph analysis={intel} onScrollToClause={scrollToClauseTitle} />
+                )}
+                {sidebarMode === "negotiation" && (
+                  <NegotiationPanelContent perspective={perspective} onPerspectiveChange={setPerspective} />
+                )}
+              </SidePanel>
+            )}
           </div>,
           document.body
         )}

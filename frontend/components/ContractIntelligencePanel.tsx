@@ -6,7 +6,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { ClauseAnalysis, ContractAnalysis, NegotiationPerspective } from "@/lib/api";
+import type { ClauseAnalysis, ClauseSuggestion, ContractAnalysis, NegotiationPerspective } from "@/lib/api";
 
 export function riskColor(risk: string | undefined): string {
   if (risk === "high") return "#dc2626";
@@ -25,44 +25,44 @@ function healthColor(score: number): string {
 export function ContractOutlineSidebar({
   analysis,
   onScrollToClause,
+  embedded,
 }: {
   analysis: ContractAnalysis | null;
   onScrollToClause: (title: string) => void;
+  /** When true, renders just the search + list — no outer card, border, or collapse
+   *  header — for hosting inside a generic slide-over panel that already supplies its own
+   *  title/close chrome (see SidePanel in page.tsx). */
+  embedded?: boolean;
 }) {
   const [query, setQuery] = useState("");
-  const [activeTitle, setActiveTitle] = useState<string | null>(null);
+  const [open, setOpen] = useState(true);
   const clauses = (analysis?.clauses ?? []).filter((c) =>
     c.title.toLowerCase().includes(query.toLowerCase()),
   );
 
-  return (
-    <nav className="outline-nav">
-      <div className="outline-nav-header">Contract Outline</div>
-      <div className="px-2">
+  const list = (
+    <>
+      <div className={embedded ? "px-0 pt-0" : "px-3 pt-2"}>
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search clauses…"
-          className="outline-nav-search"
+          className="w-full text-xs px-2.5 py-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] outline-none focus:border-[color:var(--accent-soft)]"
         />
       </div>
-      <ul className="outline-nav-list px-2">
+      <ul className={embedded ? "py-2" : "py-2 max-h-[65vh] overflow-y-auto"}>
         {clauses.map((c) => (
           <li key={c.title}>
             <button
               type="button"
-              onClick={() => {
-                setActiveTitle(c.title);
-                onScrollToClause(c.title);
-              }}
-              className={`outline-nav-row ${activeTitle === c.title ? "active" : ""}`}
+              onClick={() => onScrollToClause(c.title)}
+              className="w-full flex items-center gap-2 px-4 py-1.5 text-left text-xs hover:bg-[color:var(--surface-strong)] transition-colors"
               title={c.risk_reason}
             >
-              <span className="outline-nav-chevron">▸</span>
-              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: riskColor(c.risk) }} />
-              <span className="truncate flex-1">{c.title}</span>
+              <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: riskColor(c.risk) }} />
+              <span className="truncate text-[color:var(--text)]">▶ {c.title}</span>
               {c.variables_unresolved.length > 0 && (
-                <span className="text-[10px] font-semibold text-[color:var(--accent-strong)]">
+                <span className="ml-auto text-[10px] font-semibold text-[color:var(--accent-strong)]">
                   {c.variables_unresolved.length}
                 </span>
               )}
@@ -70,12 +70,28 @@ export function ContractOutlineSidebar({
           </li>
         ))}
         {clauses.length === 0 && (
-          <li className="px-2 py-2 text-xs text-[color:var(--text-muted)]">
+          <li className="px-4 py-2 text-xs text-[color:var(--text-muted)]">
             {analysis ? "No clauses match." : "Analyzing…"}
           </li>
         )}
       </ul>
-    </nav>
+    </>
+  );
+
+  if (embedded) return list;
+
+  return (
+    <div className="glass-panel overflow-hidden lg:sticky lg:top-4 lg:self-start">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 border-b border-[color:var(--border)] text-xs font-semibold text-[color:var(--text)]"
+      >
+        📄 Contract Outline
+        <span className="text-[color:var(--text-muted)]">{open ? "▾" : "▸"}</span>
+      </button>
+      {open && list}
+    </div>
   );
 }
 
@@ -106,27 +122,6 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-function IntelSection({
-  title,
-  defaultOpen = true,
-  children,
-}: {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="intel-section">
-      <button type="button" className="intel-section-header" onClick={() => setOpen((v) => !v)}>
-        {title}
-        <span style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 150ms ease" }}>▾</span>
-      </button>
-      {open && <div className="intel-section-body">{children}</div>}
-    </div>
-  );
-}
-
 export function ContractIntelligenceSidebar({
   analysis,
   loading,
@@ -135,6 +130,8 @@ export function ContractIntelligenceSidebar({
   onScrollToClause,
   onDismissMissingClause,
   onGenerateMissingClause,
+  onAcceptSuggestion,
+  acceptingKey,
 }: {
   analysis: ContractAnalysis | null;
   loading: boolean;
@@ -143,21 +140,23 @@ export function ContractIntelligenceSidebar({
   onScrollToClause: (title: string) => void;
   onDismissMissingClause?: (title: string) => void;
   onGenerateMissingClause?: (title: string) => void;
+  onAcceptSuggestion?: (clauseTitle: string, suggestion: ClauseSuggestion, index: number) => void;
+  acceptingKey?: string | null;
 }) {
+  const [tab, setTab] = useState<"overview" | "relationships">("overview");
   const [dismissedMissing, setDismissedMissing] = useState<Set<string>>(new Set());
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
   const missingClauses = (analysis?.missing_clauses ?? []).filter((t) => !dismissedMissing.has(t));
 
-  const suggestionCount = (analysis?.clauses ?? []).reduce((n, c) => n + c.suggestions.length, 0);
-  const relationshipCount = (analysis?.clauses ?? []).reduce(
-    (n, c) => n + c.depends_on.length + c.referenced_by.length + c.cross_references.length,
-    0,
-  );
-
   return (
-    <div className="intel-sidebar">
-      <div className="intel-section">
-        <h3 className="text-xs font-semibold text-[color:var(--text)] uppercase tracking-wide">Contract Intelligence</h3>
-        <div className="mt-3 flex items-center gap-1 rounded-full border border-[color:var(--border)] p-0.5 justify-center">
+    <div className="glass-panel overflow-hidden lg:sticky lg:top-4 lg:self-start">
+      <div className="px-4 py-3 border-b border-[color:var(--border)] flex items-center justify-between">
+        <h3 className="text-xs font-semibold text-[color:var(--text)]">Contract Intelligence</h3>
+      </div>
+
+      {/* Negotiation Mode */}
+      <div className="px-4 pt-3 flex items-center justify-center gap-1 rounded-full">
+        <div className="flex items-center gap-1 rounded-full border border-[color:var(--border)] p-0.5 w-full justify-center">
           {(["vendor", "neutral", "client"] as NegotiationPerspective[]).map((p) => (
             <button
               key={p}
@@ -175,97 +174,380 @@ export function ContractIntelligenceSidebar({
         </div>
       </div>
 
-      <IntelSection title="Contract Score">
-        <div className="flex items-center gap-3">
-          <ScoreRing score={loading && !analysis ? 0 : analysis?.health_score ?? 0} />
-          <div>
-            <div className="text-lg font-bold" style={{ color: analysis ? healthColor(analysis.health_score) : undefined }}>
-              {loading && !analysis ? "…" : `${analysis?.health_score ?? 0} / 100`}
-            </div>
-            <div className="text-[11px] text-[color:var(--text-muted)]">out of 100</div>
+      {/* Contract Score */}
+      <div className="px-4 py-4 flex items-center gap-3">
+        <ScoreRing score={loading && !analysis ? 0 : analysis?.health_score ?? 0} />
+        <div>
+          <div className="text-lg font-bold" style={{ color: analysis ? healthColor(analysis.health_score) : undefined }}>
+            {loading && !analysis ? "…" : `${analysis?.health_score ?? 0} / 100`}
           </div>
+          <div className="text-[11px] text-[color:var(--text-muted)]">Contract Score</div>
         </div>
-      </IntelSection>
+      </div>
 
-      <IntelSection title="Health Summary">
-        <ul className="space-y-1.5">
-          {(analysis?.findings ?? []).map((f, i) => (
-            <li
-              key={i}
-              onClick={() => f.clause_title && onScrollToClause(f.clause_title)}
-              className={`text-xs flex items-center gap-1.5 ${f.clause_title ? "cursor-pointer hover:underline" : ""} ${
-                f.ok ? "text-[color:var(--text)]" : "text-amber-700"
-              }`}
-            >
-              <span>{f.ok ? "✓" : "⚠"}</span>
-              {f.text}
-            </li>
-          ))}
-          {(analysis?.findings ?? []).length === 0 && (
-            <li className="text-xs text-[color:var(--text-muted)]">{analysis ? "No findings yet." : "Analyzing…"}</li>
-          )}
-        </ul>
-      </IntelSection>
+      {/* Tabs */}
+      <div className="px-4 flex gap-1 border-b border-[color:var(--border)]">
+        {(["overview", "relationships"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTab(t)}
+            className={`text-[11px] font-semibold px-2.5 py-1.5 capitalize border-b-2 -mb-px transition-colors ${
+              tab === t ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]" : "border-transparent text-[color:var(--text-muted)]"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
 
-      {missingClauses.length > 0 && (
-        <IntelSection title="Missing Clauses">
-          <div className="space-y-2">
-            {missingClauses.map((title) => (
-              <div key={title} className="text-xs space-y-1">
-                <span className="text-amber-700">⚠ Missing {title}</span>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => onGenerateMissingClause?.(title)}
-                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
-                  >
-                    Generate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDismissedMissing((prev) => new Set(prev).add(title));
-                      onDismissMissingClause?.(title);
-                    }}
-                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
-                  >
-                    Dismiss
-                  </button>
+      <div className="px-4 py-3 max-h-[65vh] overflow-y-auto">
+        {tab === "overview" ? (
+          <>
+            <ul className="space-y-1">
+              {(analysis?.findings ?? []).map((f, i) => (
+                <li
+                  key={i}
+                  onClick={() => f.clause_title && onScrollToClause(f.clause_title)}
+                  className={`text-xs flex items-center gap-1.5 ${f.clause_title ? "cursor-pointer hover:underline" : ""} ${
+                    f.ok ? "text-[color:var(--text)]" : "text-amber-700"
+                  }`}
+                >
+                  <span>{f.ok ? "✓" : "⚠"}</span>
+                  {f.text}
+                </li>
+              ))}
+            </ul>
+
+            {missingClauses.length > 0 && (
+              <div className="mt-3 pt-3 border-t border-[color:var(--border)] space-y-2">
+                {missingClauses.map((title) => (
+                  <div key={title} className="text-xs space-y-1">
+                    <span className="text-amber-700">⚠ Missing {title}</span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onGenerateMissingClause?.(title)}
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                      >
+                        Generate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDismissedMissing((prev) => new Set(prev).add(title));
+                          onDismissMissingClause?.(title);
+                        }}
+                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                      >
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {(analysis?.clauses ?? []).some((c) => c.suggestions.length > 0) && (
+              <div className="mt-3 pt-3 border-t border-[color:var(--border)]">
+                <div className="text-[11px] font-semibold text-[color:var(--text-muted)] mb-1.5">Suggestions</div>
+                <div className="space-y-1.5">
+                  {(analysis?.clauses ?? []).flatMap((c) =>
+                    c.suggestions.map((s, i) => {
+                      const key = `${c.title}::${i}`;
+                      if (dismissedSuggestions.has(key)) return null;
+                      const isAccepting = acceptingKey === key;
+                      return (
+                        <div key={key} className="text-left text-[11px] rounded-lg border border-[color:var(--border)] px-2 py-1.5">
+                          <button type="button" onClick={() => onScrollToClause(c.title)} className="block w-full text-left hover:underline">
+                            <span className="font-semibold">{c.title}: </span>
+                            {s.text}
+                          </button>
+                          <div className="flex gap-1.5 mt-1">
+                            <button
+                              type="button"
+                              disabled={isAccepting}
+                              onClick={() => onAcceptSuggestion?.(c.title, s, i)}
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)] disabled:opacity-60"
+                            >
+                              {isAccepting ? "Applying…" : "Accept"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDismissedSuggestions((prev) => new Set(prev).add(key))}
+                              className="text-[10px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                            >
+                              Dismiss
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    }),
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </IntelSection>
-      )}
-
-      {suggestionCount > 0 && (
-        <IntelSection title={`Suggestions · ${suggestionCount} pending`} defaultOpen={false}>
-          <div className="space-y-1.5">
-            {(analysis?.clauses ?? []).flatMap((c) =>
-              c.suggestions.map((s, i) => (
-                <button
-                  key={`${c.title}:${i}`}
-                  type="button"
-                  onClick={() => onScrollToClause(c.title)}
-                  className="w-full text-left text-[11px] rounded-lg border border-[color:var(--border)] px-2 py-1.5 hover:bg-[color:var(--surface-strong)]"
-                >
-                  <span className="font-semibold">{c.title}: </span>
-                  {s.text}
-                </button>
-              )),
             )}
-          </div>
-        </IntelSection>
-      )}
-
-      <IntelSection title={`Relationships · ${relationshipCount} found`} defaultOpen={false}>
-        <RelationshipsGraph analysis={analysis} onScrollToClause={onScrollToClause} />
-      </IntelSection>
+          </>
+        ) : (
+          <RelationshipsGraph analysis={analysis} onScrollToClause={onScrollToClause} />
+        )}
+      </div>
     </div>
   );
 }
 
-function RelationshipsGraph({
+/* ------------------------------------------------------------------ Standalone panel bodies
+   One content-only block per toolbar button (Health / Risk / Analytics / Suggestions /
+   Negotiation), each hosted inside the same generic SidePanel shell as Assistant — see
+   page.tsx. Everything here reads the same `analysis` object the old combined
+   ContractIntelligenceSidebar used; nothing is re-fetched. */
+
+export function HealthPanelContent({
+  analysis,
+  loading,
+  onScrollToClause,
+  onDismissMissingClause,
+  onGenerateMissingClause,
+}: {
+  analysis: ContractAnalysis | null;
+  loading: boolean;
+  onScrollToClause: (title: string) => void;
+  onDismissMissingClause?: (title: string) => void;
+  onGenerateMissingClause?: (title: string) => void;
+}) {
+  const [dismissedMissing, setDismissedMissing] = useState<Set<string>>(new Set());
+  const missingClauses = (analysis?.missing_clauses ?? []).filter((t) => !dismissedMissing.has(t));
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-3">
+        <ScoreRing score={loading && !analysis ? 0 : analysis?.health_score ?? 0} />
+        <div>
+          <div className="text-lg font-bold" style={{ color: analysis ? healthColor(analysis.health_score) : undefined }}>
+            {loading && !analysis ? "…" : `${analysis?.health_score ?? 0} / 100`}
+          </div>
+          <div className="text-[11px] text-[color:var(--text-muted)]">Contract Score</div>
+        </div>
+      </div>
+      <ul className="space-y-1 pt-2 border-t border-[color:var(--border)]">
+        {(analysis?.findings ?? []).map((f, i) => (
+          <li
+            key={i}
+            onClick={() => f.clause_title && onScrollToClause(f.clause_title)}
+            className={`text-xs flex items-center gap-1.5 ${f.clause_title ? "cursor-pointer hover:underline" : ""} ${f.ok ? "text-[color:var(--text)]" : "text-amber-700"}`}
+          >
+            <span>{f.ok ? "✓" : "⚠"}</span>
+            {f.text}
+          </li>
+        ))}
+      </ul>
+      {missingClauses.length > 0 && (
+        <div className="pt-3 border-t border-[color:var(--border)] space-y-2">
+          <div className="text-[11px] font-semibold text-[color:var(--text-muted)]">Missing Clauses / Recommendations</div>
+          {missingClauses.map((title) => (
+            <div key={title} className="text-xs space-y-1">
+              <span className="text-amber-700">⚠ Missing {title}</span>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => onGenerateMissingClause?.(title)}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                >
+                  Generate
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDismissedMissing((prev) => new Set(prev).add(title));
+                    onDismissMissingClause?.(title);
+                  }}
+                  className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function RiskPanelContent({
+  analysis,
+  onScrollToClause,
+}: {
+  analysis: ContractAnalysis | null;
+  onScrollToClause: (title: string) => void;
+}) {
+  const groups: { key: ClauseAnalysis["risk"]; label: string }[] = [
+    { key: "high", label: "High Risk" },
+    { key: "medium", label: "Medium Risk" },
+    { key: "low", label: "Low Risk" },
+  ];
+  const clauses = analysis?.clauses ?? [];
+  return (
+    <div className="space-y-4">
+      {groups.map((g) => {
+        const items = clauses.filter((c) => c.risk === g.key);
+        if (items.length === 0) return null;
+        return (
+          <div key={g.key}>
+            <div className="text-[11px] font-semibold mb-1.5" style={{ color: riskColor(g.key) }}>
+              {g.label} ({items.length})
+            </div>
+            <ul className="space-y-1">
+              {items.map((c) => (
+                <li key={c.title}>
+                  <button
+                    type="button"
+                    onClick={() => onScrollToClause(c.title)}
+                    title={c.risk_reason}
+                    className="w-full text-left text-xs px-2 py-1 rounded-lg hover:bg-[color:var(--surface-strong)]"
+                  >
+                    {c.title}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
+      {clauses.length === 0 && <p className="text-xs text-[color:var(--text-muted)]">Analyzing…</p>}
+    </div>
+  );
+}
+
+export function AnalyticsPanelContent({ analysis }: { analysis: ContractAnalysis | null }) {
+  const clauses = analysis?.clauses ?? [];
+  if (clauses.length === 0) return <p className="text-xs text-[color:var(--text-muted)]">Analyzing…</p>;
+  const totals = clauses.reduce(
+    (acc, c) => ({
+      words: acc.words + c.analytics.words,
+      variables: acc.variables + c.analytics.variables,
+      references: acc.references + c.analytics.cross_references,
+      readingTime: acc.readingTime + c.analytics.reading_time_seconds,
+    }),
+    { words: 0, variables: 0, references: 0, readingTime: 0 },
+  );
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        {[
+          ["Word Count", totals.words],
+          ["Variables", totals.variables],
+          ["References", totals.references],
+          ["Reading Time", `${totals.readingTime}s`],
+        ].map(([label, value]) => (
+          <div key={label as string} className="rounded-xl border border-[color:var(--border)] px-3 py-2">
+            <div className="text-base font-bold text-[color:var(--text)]">{value}</div>
+            <div className="text-[10px] text-[color:var(--text-muted)]">{label}</div>
+          </div>
+        ))}
+      </div>
+      <div className="pt-2 border-t border-[color:var(--border)] space-y-1.5">
+        <div className="text-[11px] font-semibold text-[color:var(--text-muted)]">Per Clause</div>
+        {clauses.map((c) => (
+          <div key={c.title} className="text-xs flex justify-between gap-2">
+            <span className="truncate">{c.title}</span>
+            <span className="text-[color:var(--text-muted)] flex-shrink-0">
+              {c.analytics.words}w · {c.analytics.readability} · {c.analytics.reading_time_seconds}s
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function SuggestionsPanelContent({
+  analysis,
+  onScrollToClause,
+  onAcceptSuggestion,
+  acceptingKey,
+}: {
+  analysis: ContractAnalysis | null;
+  onScrollToClause: (title: string) => void;
+  onAcceptSuggestion?: (clauseTitle: string, suggestion: ClauseSuggestion, index: number) => void;
+  acceptingKey?: string | null;
+}) {
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+  const entries = (analysis?.clauses ?? []).flatMap((c) =>
+    c.suggestions.map((s, i) => ({ clause: c, s, i, key: `${c.title}::${i}` })),
+  ).filter((e) => !dismissedSuggestions.has(e.key));
+
+  if (entries.length === 0) {
+    return <p className="text-xs text-[color:var(--text-muted)]">{analysis ? "No suggestions right now." : "Analyzing…"}</p>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {entries.map(({ clause, s, i, key }) => {
+        const isAccepting = acceptingKey === key;
+        return (
+          <div key={key} className="rounded-xl border border-[color:var(--border)] px-3 py-2 text-xs">
+            <button type="button" onClick={() => onScrollToClause(clause.title)} className="block w-full text-left font-semibold hover:underline">
+              {clause.title}
+            </button>
+            <div className="mt-0.5 text-[color:var(--text)]">{s.text}</div>
+            {s.rationale && <div className="mt-0.5 text-[11px] text-[color:var(--text-muted)]">{s.rationale}</div>}
+            <div className="flex gap-1.5 mt-1.5">
+              <button
+                type="button"
+                disabled={isAccepting}
+                onClick={() => onAcceptSuggestion?.(clause.title, s, i)}
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)] disabled:opacity-60"
+              >
+                {isAccepting ? "Applying…" : "Accept"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setDismissedSuggestions((prev) => new Set(prev).add(key))}
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+export function NegotiationPanelContent({
+  perspective,
+  onPerspectiveChange,
+}: {
+  perspective: NegotiationPerspective;
+  onPerspectiveChange: (p: NegotiationPerspective) => void;
+}) {
+  return (
+    <div>
+      <p className="text-xs text-[color:var(--text-muted)] mb-3">
+        Changing mode updates AI recommendations only — it does not modify the document.
+      </p>
+      <div className="flex items-center gap-1 rounded-full border border-[color:var(--border)] p-0.5">
+        {(["vendor", "neutral", "client"] as NegotiationPerspective[]).map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onPerspectiveChange(p)}
+            className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize transition-colors flex-1 ${
+              perspective === p
+                ? "bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                : "text-[color:var(--text-muted)] hover:bg-[color:var(--surface-strong)]"
+            }`}
+          >
+            {p}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function RelationshipsGraph({
   analysis,
   onScrollToClause,
 }: {
@@ -319,35 +601,50 @@ function RelationshipsGraph({
 
 /** Rendered directly under a clause's markdown in the editor — visible without opening
  * AI Edit or any popover. */
-export function ClauseSuggestionCards({ clause }: { clause: ClauseAnalysis | undefined }) {
+export function ClauseSuggestionCards({
+  clause,
+  clauseTitle,
+  onAccept,
+  acceptingKey,
+}: {
+  clause: ClauseAnalysis | undefined;
+  clauseTitle?: string;
+  onAccept?: (suggestion: ClauseSuggestion, index: number) => void;
+  acceptingKey?: string | null;
+}) {
   const [dismissed, setDismissed] = useState<Set<number>>(new Set());
   if (!clause || clause.suggestions.length === 0) return null;
   return (
     <div className="mt-2 space-y-1.5">
-      {clause.suggestions.map((s, i) =>
-        dismissed.has(i) ? null : (
+      {clause.suggestions.map((s, i) => {
+        if (dismissed.has(i)) return null;
+        const key = `${clauseTitle ?? clause.title}::${i}`;
+        const isAccepting = acceptingKey === key;
+        return (
           <div key={i} className="rounded-xl border border-[color:var(--accent-soft)] bg-[rgba(15,118,110,0.04)] px-3 py-2 text-xs">
             <div className="font-semibold text-[color:var(--accent-strong)]">💡 AI Suggestion</div>
             <div className="mt-0.5 text-[color:var(--text)]">{s.text}</div>
             <div className="flex gap-2 mt-1.5">
               <button
                 type="button"
-                onClick={() => setDismissed((prev) => new Set(prev).add(i))}
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                disabled={isAccepting}
+                onClick={() => onAccept?.(s, i)}
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)] disabled:opacity-60"
               >
-                Accept
+                {isAccepting ? "Applying…" : "Accept"}
               </button>
               <button
                 type="button"
+                disabled={isAccepting}
                 onClick={() => setDismissed((prev) => new Set(prev).add(i))}
-                className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)] disabled:opacity-60"
               >
                 Dismiss
               </button>
             </div>
           </div>
-        ),
-      )}
+        );
+      })}
     </div>
   );
 }
