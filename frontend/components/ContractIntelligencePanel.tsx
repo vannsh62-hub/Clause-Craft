@@ -30,59 +30,52 @@ export function ContractOutlineSidebar({
   onScrollToClause: (title: string) => void;
 }) {
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(true);
+  const [activeTitle, setActiveTitle] = useState<string | null>(null);
   const clauses = (analysis?.clauses ?? []).filter((c) =>
     c.title.toLowerCase().includes(query.toLowerCase()),
   );
 
   return (
-    <div className="glass-panel overflow-hidden lg:sticky lg:top-4 lg:self-start">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between px-4 py-3 border-b border-[color:var(--border)] text-xs font-semibold text-[color:var(--text)]"
-      >
-        📄 Contract Outline
-        <span className="text-[color:var(--text-muted)]">{open ? "▾" : "▸"}</span>
-      </button>
-      {open && (
-        <>
-          <div className="px-3 pt-2">
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search clauses…"
-              className="w-full text-xs px-2.5 py-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface)] outline-none focus:border-[color:var(--accent-soft)]"
-            />
-          </div>
-          <ul className="py-2 max-h-[65vh] overflow-y-auto">
-            {clauses.map((c) => (
-              <li key={c.title}>
-                <button
-                  type="button"
-                  onClick={() => onScrollToClause(c.title)}
-                  className="w-full flex items-center gap-2 px-4 py-1.5 text-left text-xs hover:bg-[color:var(--surface-strong)] transition-colors"
-                  title={c.risk_reason}
-                >
-                  <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ background: riskColor(c.risk) }} />
-                  <span className="truncate text-[color:var(--text)]">▶ {c.title}</span>
-                  {c.variables_unresolved.length > 0 && (
-                    <span className="ml-auto text-[10px] font-semibold text-[color:var(--accent-strong)]">
-                      {c.variables_unresolved.length}
-                    </span>
-                  )}
-                </button>
-              </li>
-            ))}
-            {clauses.length === 0 && (
-              <li className="px-4 py-2 text-xs text-[color:var(--text-muted)]">
-                {analysis ? "No clauses match." : "Analyzing…"}
-              </li>
-            )}
-          </ul>
-        </>
-      )}
-    </div>
+    <nav className="outline-nav">
+      <div className="outline-nav-header">Contract Outline</div>
+      <div className="px-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search clauses…"
+          className="outline-nav-search"
+        />
+      </div>
+      <ul className="outline-nav-list px-2">
+        {clauses.map((c) => (
+          <li key={c.title}>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTitle(c.title);
+                onScrollToClause(c.title);
+              }}
+              className={`outline-nav-row ${activeTitle === c.title ? "active" : ""}`}
+              title={c.risk_reason}
+            >
+              <span className="outline-nav-chevron">▸</span>
+              <span className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: riskColor(c.risk) }} />
+              <span className="truncate flex-1">{c.title}</span>
+              {c.variables_unresolved.length > 0 && (
+                <span className="text-[10px] font-semibold text-[color:var(--accent-strong)]">
+                  {c.variables_unresolved.length}
+                </span>
+              )}
+            </button>
+          </li>
+        ))}
+        {clauses.length === 0 && (
+          <li className="px-2 py-2 text-xs text-[color:var(--text-muted)]">
+            {analysis ? "No clauses match." : "Analyzing…"}
+          </li>
+        )}
+      </ul>
+    </nav>
   );
 }
 
@@ -113,6 +106,27 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+function IntelSection({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="intel-section">
+      <button type="button" className="intel-section-header" onClick={() => setOpen((v) => !v)}>
+        {title}
+        <span style={{ transform: open ? "rotate(0deg)" : "rotate(-90deg)", transition: "transform 150ms ease" }}>▾</span>
+      </button>
+      {open && <div className="intel-section-body">{children}</div>}
+    </div>
+  );
+}
+
 export function ContractIntelligenceSidebar({
   analysis,
   loading,
@@ -130,19 +144,20 @@ export function ContractIntelligenceSidebar({
   onDismissMissingClause?: (title: string) => void;
   onGenerateMissingClause?: (title: string) => void;
 }) {
-  const [tab, setTab] = useState<"overview" | "relationships">("overview");
   const [dismissedMissing, setDismissedMissing] = useState<Set<string>>(new Set());
   const missingClauses = (analysis?.missing_clauses ?? []).filter((t) => !dismissedMissing.has(t));
 
-  return (
-    <div className="glass-panel overflow-hidden lg:sticky lg:top-4 lg:self-start">
-      <div className="px-4 py-3 border-b border-[color:var(--border)] flex items-center justify-between">
-        <h3 className="text-xs font-semibold text-[color:var(--text)]">Contract Intelligence</h3>
-      </div>
+  const suggestionCount = (analysis?.clauses ?? []).reduce((n, c) => n + c.suggestions.length, 0);
+  const relationshipCount = (analysis?.clauses ?? []).reduce(
+    (n, c) => n + c.depends_on.length + c.referenced_by.length + c.cross_references.length,
+    0,
+  );
 
-      {/* Negotiation Mode */}
-      <div className="px-4 pt-3 flex items-center justify-center gap-1 rounded-full">
-        <div className="flex items-center gap-1 rounded-full border border-[color:var(--border)] p-0.5 w-full justify-center">
+  return (
+    <div className="intel-sidebar">
+      <div className="intel-section">
+        <h3 className="text-xs font-semibold text-[color:var(--text)] uppercase tracking-wide">Contract Intelligence</h3>
+        <div className="mt-3 flex items-center gap-1 rounded-full border border-[color:var(--border)] p-0.5 justify-center">
           {(["vendor", "neutral", "client"] as NegotiationPerspective[]).map((p) => (
             <button
               key={p}
@@ -160,105 +175,92 @@ export function ContractIntelligenceSidebar({
         </div>
       </div>
 
-      {/* Contract Score */}
-      <div className="px-4 py-4 flex items-center gap-3">
-        <ScoreRing score={loading && !analysis ? 0 : analysis?.health_score ?? 0} />
-        <div>
-          <div className="text-lg font-bold" style={{ color: analysis ? healthColor(analysis.health_score) : undefined }}>
-            {loading && !analysis ? "…" : `${analysis?.health_score ?? 0} / 100`}
+      <IntelSection title="Contract Score">
+        <div className="flex items-center gap-3">
+          <ScoreRing score={loading && !analysis ? 0 : analysis?.health_score ?? 0} />
+          <div>
+            <div className="text-lg font-bold" style={{ color: analysis ? healthColor(analysis.health_score) : undefined }}>
+              {loading && !analysis ? "…" : `${analysis?.health_score ?? 0} / 100`}
+            </div>
+            <div className="text-[11px] text-[color:var(--text-muted)]">out of 100</div>
           </div>
-          <div className="text-[11px] text-[color:var(--text-muted)]">Contract Score</div>
         </div>
-      </div>
+      </IntelSection>
 
-      {/* Tabs */}
-      <div className="px-4 flex gap-1 border-b border-[color:var(--border)]">
-        {(["overview", "relationships"] as const).map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            className={`text-[11px] font-semibold px-2.5 py-1.5 capitalize border-b-2 -mb-px transition-colors ${
-              tab === t ? "border-[color:var(--accent)] text-[color:var(--accent-strong)]" : "border-transparent text-[color:var(--text-muted)]"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
+      <IntelSection title="Health Summary">
+        <ul className="space-y-1.5">
+          {(analysis?.findings ?? []).map((f, i) => (
+            <li
+              key={i}
+              onClick={() => f.clause_title && onScrollToClause(f.clause_title)}
+              className={`text-xs flex items-center gap-1.5 ${f.clause_title ? "cursor-pointer hover:underline" : ""} ${
+                f.ok ? "text-[color:var(--text)]" : "text-amber-700"
+              }`}
+            >
+              <span>{f.ok ? "✓" : "⚠"}</span>
+              {f.text}
+            </li>
+          ))}
+          {(analysis?.findings ?? []).length === 0 && (
+            <li className="text-xs text-[color:var(--text-muted)]">{analysis ? "No findings yet." : "Analyzing…"}</li>
+          )}
+        </ul>
+      </IntelSection>
 
-      <div className="px-4 py-3 max-h-[65vh] overflow-y-auto">
-        {tab === "overview" ? (
-          <>
-            <ul className="space-y-1">
-              {(analysis?.findings ?? []).map((f, i) => (
-                <li
-                  key={i}
-                  onClick={() => f.clause_title && onScrollToClause(f.clause_title)}
-                  className={`text-xs flex items-center gap-1.5 ${f.clause_title ? "cursor-pointer hover:underline" : ""} ${
-                    f.ok ? "text-[color:var(--text)]" : "text-amber-700"
-                  }`}
-                >
-                  <span>{f.ok ? "✓" : "⚠"}</span>
-                  {f.text}
-                </li>
-              ))}
-            </ul>
-
-            {missingClauses.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-[color:var(--border)] space-y-2">
-                {missingClauses.map((title) => (
-                  <div key={title} className="text-xs space-y-1">
-                    <span className="text-amber-700">⚠ Missing {title}</span>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={() => onGenerateMissingClause?.(title)}
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
-                      >
-                        Generate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDismissedMissing((prev) => new Set(prev).add(title));
-                          onDismissMissingClause?.(title);
-                        }}
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
-                      >
-                        Dismiss
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {(analysis?.clauses ?? []).some((c) => c.suggestions.length > 0) && (
-              <div className="mt-3 pt-3 border-t border-[color:var(--border)]">
-                <div className="text-[11px] font-semibold text-[color:var(--text-muted)] mb-1.5">Suggestions</div>
-                <div className="space-y-1.5">
-                  {(analysis?.clauses ?? []).flatMap((c) =>
-                    c.suggestions.map((s, i) => (
-                      <button
-                        key={`${c.title}:${i}`}
-                        type="button"
-                        onClick={() => onScrollToClause(c.title)}
-                        className="w-full text-left text-[11px] rounded-lg border border-[color:var(--border)] px-2 py-1.5 hover:bg-[color:var(--surface-strong)]"
-                      >
-                        <span className="font-semibold">{c.title}: </span>
-                        {s.text}
-                      </button>
-                    )),
-                  )}
+      {missingClauses.length > 0 && (
+        <IntelSection title="Missing Clauses">
+          <div className="space-y-2">
+            {missingClauses.map((title) => (
+              <div key={title} className="text-xs space-y-1">
+                <span className="text-amber-700">⚠ Missing {title}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => onGenerateMissingClause?.(title)}
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)]"
+                  >
+                    Generate
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDismissedMissing((prev) => new Set(prev).add(title));
+                      onDismissMissingClause?.(title);
+                    }}
+                    className="text-[11px] font-semibold px-2 py-0.5 rounded-full border border-[color:var(--border)] text-[color:var(--text-muted)]"
+                  >
+                    Dismiss
+                  </button>
                 </div>
               </div>
+            ))}
+          </div>
+        </IntelSection>
+      )}
+
+      {suggestionCount > 0 && (
+        <IntelSection title={`Suggestions · ${suggestionCount} pending`} defaultOpen={false}>
+          <div className="space-y-1.5">
+            {(analysis?.clauses ?? []).flatMap((c) =>
+              c.suggestions.map((s, i) => (
+                <button
+                  key={`${c.title}:${i}`}
+                  type="button"
+                  onClick={() => onScrollToClause(c.title)}
+                  className="w-full text-left text-[11px] rounded-lg border border-[color:var(--border)] px-2 py-1.5 hover:bg-[color:var(--surface-strong)]"
+                >
+                  <span className="font-semibold">{c.title}: </span>
+                  {s.text}
+                </button>
+              )),
             )}
-          </>
-        ) : (
-          <RelationshipsGraph analysis={analysis} onScrollToClause={onScrollToClause} />
-        )}
-      </div>
+          </div>
+        </IntelSection>
+      )}
+
+      <IntelSection title={`Relationships · ${relationshipCount} found`} defaultOpen={false}>
+        <RelationshipsGraph analysis={analysis} onScrollToClause={onScrollToClause} />
+      </IntelSection>
     </div>
   );
 }

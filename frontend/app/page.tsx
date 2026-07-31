@@ -391,8 +391,8 @@ export default function Page() {
   }
 
   const markdownComponents: Record<string, React.ComponentType<any>> = {
-    h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
+    h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-[32px] font-bold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
+    h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     h3: ({ node, ...props }) => <h3 className="doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     p: ({ node, ...props }) => <p className="doc-paragraph mt-4 leading-8 text-sm text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
     strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
@@ -1315,11 +1315,11 @@ export default function Page() {
               Intelligence (right) — the right sidebar is always visible once a document
               exists, sharing the single `intel` analysis fetched below. */}
           {phase === "done" && markdown && (
-            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_320px] gap-4 mt-8 max-w-[1600px] mx-auto items-start">
+            <div className="workspace-grid mt-8 max-w-[1800px] mx-auto">
               <ContractOutlineSidebar analysis={intel} onScrollToClause={scrollToClauseTitle} />
 
           {/* Document Preview Card — scrollable, and editable with clause insertion */}
-            <div className="glass-panel overflow-hidden">
+            <div className="glass-panel overflow-hidden min-w-0">
               <div className="border-b border-[color:var(--border)] px-5 py-4 bg-[color:var(--surface-muted)] flex justify-between items-center gap-3 flex-wrap">
                 <h3 className="font-semibold text-sm">Document Preview</h3>
                 <div className="flex items-center gap-2">
@@ -1394,9 +1394,9 @@ export default function Page() {
 
               {/* The document scrolls inside a fixed-height panel — the page no longer grows
                   with the contract. */}
-              <div className="p-4 sm:p-6 bg-[color:var(--surface-muted)] doc-preview-scroll">
+              <div className="p-6 sm:p-10 bg-[color:var(--surface-muted)] doc-preview-scroll">
                 {editing ? (
-                  <div className="doc-paper mx-auto w-full max-w-5xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" style={{ minHeight: "60vh" }}>
+                  <div className="doc-paper mx-auto w-full max-w-[880px] rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-10 sm:p-14" style={{ minHeight: "60vh" }}>
                     {parseEditBlocks(editedMarkdown).map((block) => {
                       const shared = {
                         contentEditable: true,
@@ -1408,9 +1408,9 @@ export default function Page() {
                           "outline-none rounded-md px-1 -mx-1 cursor-text hover:bg-[rgba(15,118,110,0.04)] focus:bg-[rgba(15,118,110,0.06)]",
                       };
                       if (block.kind === "h1")
-                        return <h1 key={block.start} {...shared} className={`doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h1>;
+                        return <h1 key={block.start} {...shared} className={`doc-heading mt-0 text-[32px] font-bold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h1>;
                       if (block.kind === "h2")
-                        return <h2 key={block.start} {...shared} className={`doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h2>;
+                        return <h2 key={block.start} {...shared} className={`doc-heading mt-8 text-2xl font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h2>;
                       if (block.kind === "h3")
                         return <h3 key={block.start} {...shared} className={`doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] ${shared.className}`}>{block.text}</h3>;
                       if (block.kind === "blockquote")
@@ -1419,7 +1419,7 @@ export default function Page() {
                     })}
                   </div>
                 ) : (
-                  <div className="doc-paper mx-auto w-full max-w-5xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" onMouseLeave={() => setHoveredClauseId(null)}>
+                  <div className="doc-paper mx-auto w-full max-w-[880px] rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-10 sm:p-14" onMouseLeave={() => setHoveredClauseId(null)}>
                     {(() => {
                       const sections = parseClauseSections(markdown);
                       const preamble = markdown.slice(0, sections[0]?.start ?? markdown.length);

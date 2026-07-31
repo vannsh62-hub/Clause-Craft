@@ -1235,11 +1235,21 @@ pre {
 
 /* Bottom Chat Input Bar */
 .bottom-input-container {
-  @apply glass-panel;
-  padding: 0.75rem 1.25rem;
+  background: var(--surface);
+  backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 9999px;
+  box-shadow: var(--shadow);
+  padding: 0.5rem 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.25rem;
+  transition: border-radius 150ms ease;
+}
+
+.bottom-input-container:has(textarea:focus),
+.bottom-input-container.is-expanded {
+  border-radius: 1.5rem;
 }
 
 .bottom-input-row {
@@ -2179,15 +2189,136 @@ pre {
    (rendered above AND below each clause via .clause-block) have room to
    appear without overlapping the neighbouring clause. */
 .clause-block {
-  margin-top: 18px;
-  margin-bottom: 18px;
+  margin-top: 24px;
+  margin-bottom: 24px;
 }
 .clause-block:first-child {
   margin-top: 4px;
 }
 @media (max-width: 640px) {
   .clause-block {
-    margin-top: 14px;
-    margin-bottom: 14px;
+    margin-top: 16px;
+    margin-bottom: 16px;
   }
+}
+
+/* ---- Contract Intelligence Workspace (three-column) ------------------------------- */
+.workspace-grid {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+@media (min-width: 1024px) {
+  .workspace-grid { grid-template-columns: 280px minmax(0, 1fr); }
+}
+@media (min-width: 1400px) {
+  .workspace-grid { grid-template-columns: 280px minmax(0, 1fr) 340px; }
+}
+
+/* Second sidebar: Contract Outline — a nav tree, not a floating card. Flush borders,
+   no shadow, stretches full height and stays sticky while the document scrolls. */
+.outline-nav {
+  border-right: 1px solid var(--border);
+  background: transparent;
+}
+@media (min-width: 1024px) {
+  .outline-nav {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    display: flex;
+    flex-direction: column;
+  }
+}
+.outline-nav-header {
+  padding: 4px 8px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+.outline-nav-search {
+  width: 100%;
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-muted);
+  outline: none;
+  transition: border-color 150ms ease;
+}
+.outline-nav-search:focus {
+  border-color: var(--accent-soft);
+}
+.outline-nav-list {
+  margin-top: 8px;
+  overflow-y: auto;
+  flex: 1;
+}
+.outline-nav-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: var(--text);
+  text-align: left;
+  transition: background-color 150ms ease;
+  border-left: 2px solid transparent;
+}
+.outline-nav-row:hover {
+  background: var(--surface-muted);
+}
+.outline-nav-row.active {
+  background: var(--accent-soft);
+  border-left-color: var(--accent);
+  color: var(--accent-strong);
+  font-weight: 600;
+}
+.outline-nav-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  font-size: 10px;
+  transition: transform 150ms ease;
+}
+
+/* Third sidebar: Contract Intelligence — compact information panels, integrated rather
+   than floating; sticky while the document scrolls. */
+.intel-sidebar {
+  border-left: 1px solid var(--border);
+  background: transparent;
+}
+@media (min-width: 1400px) {
+  .intel-sidebar {
+    position: sticky;
+    top: 16px;
+    max-height: calc(100vh - 32px);
+    overflow-y: auto;
+  }
+}
+.intel-section {
+  border-bottom: 1px solid var(--border);
+  padding: 16px;
+}
+.intel-section:last-child {
+  border-bottom: none;
+}
+.intel-section-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.intel-section-body {
+  margin-top: 12px;
+  overflow: hidden;
+  transition: max-height 200ms ease;
 }
