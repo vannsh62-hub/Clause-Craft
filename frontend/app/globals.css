@@ -2208,3 +2208,128 @@ pre {
     background-color: transparent;
   }
 }
+/* ---- OSS Directory (legal-oss.com style card grid) ---------------------------------- */
+.oss-directory {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  color: var(--text);
+}
+.oss-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+.oss-title {
+  font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  font-weight: 700;
+  font-size: 2rem;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: var(--text);
+}
+.oss-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  max-width: 46rem;
+  line-height: 1.6;
+}
+.oss-tracked {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.oss-count {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.78rem;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 1.25rem 0 1rem;
+}
+.oss-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+.oss-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  border: 1px solid var(--border);
+  background: var(--surface-strong);
+  border-radius: 1.1rem;
+  padding: 1.15rem 1.25rem;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+.oss-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 45px -28px rgba(15, 23, 42, 0.35);
+  border-color: var(--accent);
+}
+.oss-card-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.oss-tag {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  border-radius: 999px;
+  padding: 0.2rem 0.55rem;
+}
+.oss-card-title {
+  font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+  font-weight: 700;
+  font-size: 1.2rem;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: var(--text);
+}
+.oss-card-repo {
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.01em;
+  color: var(--text-muted);
+  margin: -0.35rem 0 0;
+}
+.oss-card-desc {
+  font-size: 0.85rem;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin: 0;
+  flex: 1;
+}
+.oss-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  font-family: var(--font-plex-mono), ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+.oss-card-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.oss-card-lang-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: var(--accent);
+  display: inline-block;
+}

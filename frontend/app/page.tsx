@@ -12,8 +12,7 @@ import {
   ContractOutlineSidebar,
   ClauseSuggestionCards,
   ClauseAnalyticsFooter,
-  ClauseExplainPopover,
-  openClauseExplain,
+  ClauseExplainContent,
   riskColor,
   HealthPanelContent,
   RiskPanelContent,
@@ -192,8 +191,9 @@ export default function Page() {
   // toolbar button while the sidebar is open swaps its content in place rather than closing
   // and reopening a different panel (see SidePanel below, which is the single implementation
   // every mode renders through, including "assistant").
-  type SidebarMode = "assistant" | "outline" | "suggestions" | "health" | "risks" | "analytics" | "relationships" | "negotiation";
+  type SidebarMode = "assistant" | "outline" | "suggestions" | "health" | "risks" | "analytics" | "relationships" | "negotiation" | "explain";
   const [sidebarMode, setSidebarMode] = useState<SidebarMode | null>(null);
+  const [explainClauseTitle, setExplainClauseTitle] = useState<string | null>(null);
   function toggleSidebar(mode: SidebarMode) {
     setSidebarMode((cur) => (cur === mode ? null : mode));
   }
@@ -1493,20 +1493,6 @@ export default function Page() {
                     <DownloadIcon />
                     {downloading ? "Downloading…" : "Download"}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editing) {
-                        // Leaving edit mode keeps the edits in the preview.
-                        setMarkdown(editedMarkdown);
-                      }
-                      setEditing((v) => !v);
-                      setClausePickerOpen(false);
-                    }}
-                    className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-strong)] transition-colors"
-                  >
-                    {editing ? "Done" : "Edit"}
-                  </button>
                   <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-[color:var(--accent-soft)] text-[color:var(--accent-strong)]">
                     {editing ? "Editing" : "Preview"}
                   </span>
@@ -1631,7 +1617,8 @@ export default function Page() {
                                   className="px-2 py-1 rounded-full hover:bg-[color:var(--surface-strong)]"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openClauseExplain(section.title);
+                                    setExplainClauseTitle(section.title);
+                                    setSidebarMode("explain");
                                   }}
                                 >
                                   ✨ Explain
@@ -1676,9 +1663,6 @@ export default function Page() {
             </div>
             </div>
           )}
-
-          {/* Global Explain side panel — opened from any clause toolbar's ✨ Explain button. */}
-          <ClauseExplainPopover analysis={intel} />
 
           {/* Generated docx Download Card — for any finalized draft. Sits right after
               Document Preview, not before it. */}
@@ -1844,10 +1828,14 @@ export default function Page() {
                     analytics: "📊 Analytics",
                     relationships: "🔗 Relationships",
                     negotiation: "🤝 Negotiation",
+                    explain: `✨ ${explainClauseTitle ?? "Explain"}`,
                   }[sidebarMode]
                 }
                 onClose={() => setSidebarMode(null)}
               >
+                {sidebarMode === "explain" && (
+                  <ClauseExplainContent analysis={intel} title={explainClauseTitle} />
+                )}
                 {sidebarMode === "outline" && (
                   <ContractOutlineSidebar analysis={intel} onScrollToClause={scrollToClauseTitle} embedded />
                 )}

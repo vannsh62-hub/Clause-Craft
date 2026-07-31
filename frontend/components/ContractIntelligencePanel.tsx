@@ -671,54 +671,39 @@ export function ClauseAnalyticsFooter({ clause }: { clause: ClauseAnalysis | und
   );
 }
 
-/* ------------------------------------------------------------------ AI Explain popover */
+/* ------------------------------------------------------------------ AI Explain (renders inside the shared sidebar shell — see sidebarMode "explain" in page.tsx) */
 
-export function ClauseExplainPopover({ analysis }: { analysis: ContractAnalysis | null }) {
-  const [explainTitle, setExplainTitle] = useState<string | null>(null);
-  useEffect(() => {
-    const listener = (e: Event) => setExplainTitle((e as CustomEvent<string>).detail);
-    window.addEventListener("contract-intelligence:explain", listener);
-    return () => window.removeEventListener("contract-intelligence:explain", listener);
-  }, []);
-
-  const clause = analysis?.clauses.find((c) => c.title === explainTitle) ?? null;
-  if (!clause) return null;
+export function ClauseExplainContent({ analysis, title }: { analysis: ContractAnalysis | null; title: string | null }) {
+  const clause = analysis?.clauses.find((c) => c.title === title) ?? null;
+  if (!clause) return <p className="text-xs text-[color:var(--text-muted)]">Couldn't find that clause.</p>;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/20" onClick={() => setExplainTitle(null)}>
-      <div className="w-full max-w-sm h-full bg-[color:var(--surface)] shadow-xl overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-sm">{clause.title}</h3>
-          <button type="button" onClick={() => setExplainTitle(null)} className="text-[color:var(--text-muted)]">
-            ✕
-          </button>
+    <div>
+      <ExplainSection label="Summary" text={clause.summary} />
+      <ExplainSection label="Plain English" text={clause.plain_english} />
+      <ExplainSection label="Business Purpose" text={clause.business_purpose} />
+      <div className="flex items-center gap-2 my-2">
+        <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: riskColor(clause.risk) }} />
+        <span className="text-xs font-semibold capitalize">{clause.risk} risk</span>
+      </div>
+      {clause.risk_reason && <p className="text-xs text-[color:var(--text-muted)] mb-2">{clause.risk_reason}</p>}
+      <ExplainSection label="Negotiation Tips" text={clause.negotiation_tips} />
+      <ExplainSection label="Common Alternatives" text={clause.common_alternatives} />
+      <ExplainSection label="Potential Problems" text={clause.potential_problems} />
+      {(clause.depends_on.length > 0 || clause.referenced_by.length > 0 || clause.cross_references.length > 0) && (
+        <div className="mt-3 pt-3 border-t border-[color:var(--border)] text-xs space-y-1">
+          {clause.depends_on.length > 0 && <div>Depends on: {clause.depends_on.join(", ")}</div>}
+          {clause.referenced_by.length > 0 && <div>Referenced by: {clause.referenced_by.join(", ")}</div>}
+          {clause.cross_references.length > 0 && <div>Cross references: {clause.cross_references.join(", ")}</div>}
         </div>
-        <ExplainSection label="Summary" text={clause.summary} />
-        <ExplainSection label="Plain English" text={clause.plain_english} />
-        <ExplainSection label="Business Purpose" text={clause.business_purpose} />
-        <div className="flex items-center gap-2 my-2">
-          <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: riskColor(clause.risk) }} />
-          <span className="text-xs font-semibold capitalize">{clause.risk} risk</span>
-        </div>
-        {clause.risk_reason && <p className="text-xs text-[color:var(--text-muted)] mb-2">{clause.risk_reason}</p>}
-        <ExplainSection label="Negotiation Tips" text={clause.negotiation_tips} />
-        <ExplainSection label="Common Alternatives" text={clause.common_alternatives} />
-        <ExplainSection label="Potential Problems" text={clause.potential_problems} />
-        {(clause.depends_on.length > 0 || clause.referenced_by.length > 0 || clause.cross_references.length > 0) && (
-          <div className="mt-3 pt-3 border-t border-[color:var(--border)] text-xs space-y-1">
-            {clause.depends_on.length > 0 && <div>Depends on: {clause.depends_on.join(", ")}</div>}
-            {clause.referenced_by.length > 0 && <div>Referenced by: {clause.referenced_by.join(", ")}</div>}
-            {clause.cross_references.length > 0 && <div>Cross references: {clause.cross_references.join(", ")}</div>}
-          </div>
-        )}
-        <div className="mt-3 pt-3 border-t border-[color:var(--border)] grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
-          <span>Words: {clause.analytics.words}</span>
-          <span>Reading time: {clause.analytics.reading_time_seconds}s</span>
-          <span>Readability: {clause.analytics.readability}</span>
-          <span>Variables: {clause.analytics.variables}</span>
-          <span>Cross references: {clause.analytics.cross_references}</span>
-          <span>AI suggestions: {clause.analytics.ai_suggestions}</span>
-        </div>
+      )}
+      <div className="mt-3 pt-3 border-t border-[color:var(--border)] grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-[color:var(--text-muted)]">
+        <span>Words: {clause.analytics.words}</span>
+        <span>Reading time: {clause.analytics.reading_time_seconds}s</span>
+        <span>Readability: {clause.analytics.readability}</span>
+        <span>Variables: {clause.analytics.variables}</span>
+        <span>Cross references: {clause.analytics.cross_references}</span>
+        <span>AI suggestions: {clause.analytics.ai_suggestions}</span>
       </div>
     </div>
   );
@@ -732,9 +717,4 @@ function ExplainSection({ label, text }: { label: string; text: string }) {
       <div className="text-xs text-[color:var(--text)]">{text}</div>
     </div>
   );
-}
-
-/** Dispatch to open the Explain popover for `title` — called from page.tsx's clause toolbar. */
-export function openClauseExplain(title: string) {
-  window.dispatchEvent(new CustomEvent("contract-intelligence:explain", { detail: title }));
 }
