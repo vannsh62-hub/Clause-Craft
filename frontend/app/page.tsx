@@ -8,7 +8,15 @@ import { ClauseEditModal } from "@/components/Clauseeditmodal";
 import { ClauseRemoveConfirm } from "@/components/ClauseRemoveConfirm";
 import { ClauseFillDetailsModal } from "@/components/Clausefilldetailsmodal";
 import { DocumentFillDetailsModal } from "@/components/DocumentFillDetailsModal";
-import { ContractIntelligencePanel, openClauseExplain, riskColor } from "@/components/ContractIntelligencePanel";
+import {
+  ContractOutlineSidebar,
+  ContractIntelligenceSidebar,
+  ClauseSuggestionCards,
+  ClauseAnalyticsFooter,
+  ClauseExplainPopover,
+  openClauseExplain,
+  riskColor,
+} from "@/components/ContractIntelligencePanel";
 import { analyzeContract, type ContractAnalysis, type NegotiationPerspective } from "@/lib/api";
 import {
   clauseSectionAt as sharedClauseSectionAt,
@@ -1303,9 +1311,15 @@ export default function Page() {
             </div>
           )}
 
-          {/* Document Preview Card — scrollable, and editable with clause insertion */}
+          {/* Contract Intelligence Workspace: Outline (left) / editor (center) / Contract
+              Intelligence (right) — the right sidebar is always visible once a document
+              exists, sharing the single `intel` analysis fetched below. */}
           {phase === "done" && markdown && (
-            <div className="glass-panel overflow-hidden mt-8 max-w-6xl mx-auto">
+            <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr_320px] gap-4 mt-8 max-w-[1600px] mx-auto items-start">
+              <ContractOutlineSidebar analysis={intel} onScrollToClause={scrollToClauseTitle} />
+
+          {/* Document Preview Card — scrollable, and editable with clause insertion */}
+            <div className="glass-panel overflow-hidden">
               <div className="border-b border-[color:var(--border)] px-5 py-4 bg-[color:var(--surface-muted)] flex justify-between items-center gap-3 flex-wrap">
                 <h3 className="font-semibold text-sm">Document Preview</h3>
                 <div className="flex items-center gap-2">
@@ -1495,7 +1509,8 @@ export default function Page() {
                                 </button>
                               </div>
                             );
-                            const risk = intel?.clauses.find((c) => c.title === section.title)?.risk;
+                            const clauseIntel = intel?.clauses.find((c) => c.title === section.title);
+                            const risk = clauseIntel?.risk;
                             return (
                               <div
                                 key={section.instanceId}
@@ -1512,6 +1527,8 @@ export default function Page() {
                                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
                                   {section.markdown}
                                 </ReactMarkdown>
+                                <ClauseSuggestionCards clause={clauseIntel} />
+                                <ClauseAnalyticsFooter clause={clauseIntel} />
                                 {hovered && renderToolbar("bottom")}
                               </div>
                             );
@@ -1523,20 +1540,20 @@ export default function Page() {
                 )}
               </div>
             </div>
+
+              <ContractIntelligenceSidebar
+                analysis={intel}
+                loading={intelLoading}
+                perspective={perspective}
+                onPerspectiveChange={setPerspective}
+                onScrollToClause={scrollToClauseTitle}
+                onGenerateMissingClause={() => setAssistantOpen(true)}
+              />
+            </div>
           )}
 
-          {/* Contract Intelligence — Health Score, Outline, Risk Heatmap, Suggestions,
-              Negotiation Mode, Explain. One shared analysis (`intel`) for every widget. */}
-          {phase === "done" && markdown && (
-            <ContractIntelligencePanel
-              analysis={intel}
-              loading={intelLoading}
-              perspective={perspective}
-              onPerspectiveChange={setPerspective}
-              onScrollToClause={scrollToClauseTitle}
-              onGenerateMissingClause={() => setAssistantOpen(true)}
-            />
-          )}
+          {/* Global Explain side panel — opened from any clause toolbar's ✨ Explain button. */}
+          <ClauseExplainPopover analysis={intel} />
 
           {/* Generated docx Download Card — for any finalized draft. Sits right after
               Document Preview, not before it. */}
