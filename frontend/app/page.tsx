@@ -360,13 +360,18 @@ export default function Page() {
   // Right-click (contextmenu) is the primary trigger — it's the natural gesture for a
   // context menu — so the browser's own right-click menu is suppressed in favor of ours.
   // Left-click keeps working too, for anyone used to that instead.
-  function onDocBlockClick(e: React.MouseEvent, node: any) {
+  // `node.position.offset`s from remark are relative to whatever string was handed to
+  // ReactMarkdown — for the preamble that's the full doc (base 0), but for a clause it's
+  // just `section.markdown` (base `section.start`). Without adding that base back on,
+  // a click inside any clause after the first resolves to a small, wrong "global" offset,
+  // and splicing/removing at that offset corrupts or truncates the rest of the document.
+  function onDocBlockClick(e: React.MouseEvent, node: any, base = 0) {
     e.preventDefault();
     e.stopPropagation();
     const start = node?.position?.start?.offset;
     const end = node?.position?.end?.offset;
     if (start == null || end == null) return;
-    openBlockMenu(e.clientX, e.clientY, start, end);
+    openBlockMenu(e.clientX, e.clientY, base + start, base + end);
   }
 
   // Same click-anywhere menu as Preview, but for the WYSIWYG Editing view: each rendered
@@ -438,20 +443,26 @@ export default function Page() {
     setEditedMarkdown(next);
   }
 
-  const markdownComponents: Record<string, React.ComponentType<any>> = {
-    h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    h3: ({ node, ...props }) => <h3 className="doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    p: ({ node, ...props }) => <p className="doc-paragraph mt-4 leading-8 text-sm text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
-    em: ({ node, ...props }) => <em className="italic" {...props} />,
-    ul: ({ node, ...props }) => <ul className="doc-list list-disc pl-6 mt-4 space-y-2" {...props} />,
-    ol: ({ node, ...props }) => <ol className="doc-list list-decimal pl-6 mt-4 space-y-2" {...props} />,
-    li: ({ node, ordered, ...props }) => <li className="mt-2 leading-7 cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    blockquote: ({ node, ...props }) => <blockquote className="doc-blockquote mt-6 rounded-3xl border-l-4 border-[color:var(--accent-soft)] bg-[rgba(15,118,110,0.05)] px-5 py-4 italic text-sm leading-7 cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node)} {...props} />,
-    code: ({ node, inline, className, children, ...props }) => inline ? <code className="doc-inline-code rounded-sm bg-[rgba(15,118,110,0.1)] px-1 py-0.5 text-sm" {...props}>{children}</code> : <pre className="doc-code my-6 overflow-auto rounded-3xl bg-[rgba(15,118,110,0.08)] p-5 text-sm leading-7" {...props}><code>{children}</code></pre>,
-    a: ({ node, ...props }) => <a className="theme-link underline decoration-[color:var(--accent)] decoration-2 underline-offset-4" {...props} />,
-  };
+  // Factory instead of a single static object: a clause rendered via `section.markdown`
+  // needs its click handlers to add `section.start` back onto remark's local offsets (see
+  // onDocBlockClick above). The preamble render uses base 0 (full-doc string, no offset).
+  function makeMarkdownComponents(base = 0): Record<string, React.ComponentType<any>> {
+    return {
+      h1: ({ node, ...props }) => <h1 className="doc-heading mt-0 text-2xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      h2: ({ node, ...props }) => <h2 className="doc-heading mt-8 text-xl font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      h3: ({ node, ...props }) => <h3 className="doc-heading mt-6 text-lg font-semibold tracking-tight text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      p: ({ node, ...props }) => <p className="doc-paragraph mt-4 leading-8 text-sm text-[color:var(--text)] cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      strong: ({ node, ...props }) => <strong className="font-semibold" {...props} />,
+      em: ({ node, ...props }) => <em className="italic" {...props} />,
+      ul: ({ node, ...props }) => <ul className="doc-list list-disc pl-6 mt-4 space-y-2" {...props} />,
+      ol: ({ node, ...props }) => <ol className="doc-list list-decimal pl-6 mt-4 space-y-2" {...props} />,
+      li: ({ node, ordered, ...props }) => <li className="mt-2 leading-7 cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      blockquote: ({ node, ...props }) => <blockquote className="doc-blockquote mt-6 rounded-3xl border-l-4 border-[color:var(--accent-soft)] bg-[rgba(15,118,110,0.05)] px-5 py-4 italic text-sm leading-7 cursor-pointer" onClick={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} onContextMenu={(e: React.MouseEvent) => onDocBlockClick(e, node, base)} {...props} />,
+      code: ({ node, inline, className, children, ...props }) => inline ? <code className="doc-inline-code rounded-sm bg-[rgba(15,118,110,0.1)] px-1 py-0.5 text-sm" {...props}>{children}</code> : <pre className="doc-code my-6 overflow-auto rounded-3xl bg-[rgba(15,118,110,0.08)] p-5 text-sm leading-7" {...props}><code>{children}</code></pre>,
+      a: ({ node, ...props }) => <a className="theme-link underline decoration-[color:var(--accent)] decoration-2 underline-offset-4" {...props} />,
+    };
+  }
+  const markdownComponents = makeMarkdownComponents(0);
 
   // The clause boundaries in the doc are its "## Heading" sections — the same shape every
   // rendered clause takes. Used to answer "which clause did the user click inside" for the
@@ -1084,7 +1095,11 @@ export default function Page() {
   // inserting at a specific spot, click directly on the block to insert after — that opens
   // the same picker positioned there.)
   function insertClauseMarkdown(snippet: string) {
-    setEditedMarkdown((current) => renumberClauseHeadings(current.trim() + "\n\n" + snippet.trim() + "\n"));
+    const doc = editing ? editedMarkdown : markdown;
+    if (doc == null) return;
+    const next = renumberClauseHeadings(doc.trim() + "\n\n" + snippet.trim() + "\n");
+    setMarkdown(next);
+    setEditedMarkdown(next);
     setClausePickerOpen(false);
   }
 
@@ -1422,7 +1437,7 @@ export default function Page() {
 
           {/* Document Preview Card — scrollable, and editable with clause insertion */}
             <div className="glass-panel overflow-hidden">
-              <div className="border-b border-[color:var(--border)] px-5 py-4 bg-[color:var(--surface-muted)] flex justify-between items-center gap-3 flex-wrap">
+              <div className="border-b border-[color:var(--border)] px-5 py-4 bg-[color:var(--surface)] flex justify-between items-center gap-3 flex-wrap">
                 <h3 className="font-semibold text-sm">Document Preview</h3>
                 <div className="flex items-center gap-2 flex-wrap justify-end">
                   {(
@@ -1456,7 +1471,7 @@ export default function Page() {
                     <button
                       type="button"
                       onClick={() => setClausePickerOpen((v) => !v)}
-                      className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--accent-soft)] text-[color:var(--accent-strong)] bg-[color:var(--accent-soft)] hover:opacity-90 transition-opacity"
+                      className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--accent)] text-[color:var(--accent)] bg-[color:var(--surface)] hover:bg-[color:var(--accent-soft)] transition-colors"
                     >
                       + Insert clause
                     </button>
@@ -1478,7 +1493,7 @@ export default function Page() {
                     type="button"
                     onClick={() => setFillAllOpen(true)}
                     title="Find and fill every missing detail in the document"
-                    className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-strong)] transition-colors flex items-center gap-1.5"
+                    className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--border-hover)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-hover)] transition-colors flex items-center gap-1.5"
                   >
                     <FillIcon />
                     Fill
@@ -1488,7 +1503,7 @@ export default function Page() {
                     onClick={download}
                     disabled={downloading}
                     title={`Download ${docTitle}.docx`}
-                    className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--border)] text-[color:var(--text)] hover:bg-[color:var(--surface-strong)] transition-colors disabled:opacity-50 flex items-center gap-1.5"
+                    className="text-xs font-semibold px-3 py-1 rounded-full border border-[color:var(--border-hover)] bg-[color:var(--surface)] text-[color:var(--text)] hover:bg-[color:var(--surface-hover)] transition-colors disabled:opacity-50 flex items-center gap-1.5"
                   >
                     <DownloadIcon />
                     {downloading ? "Downloading…" : "Download"}
@@ -1509,9 +1524,9 @@ export default function Page() {
 
               {/* The document scrolls inside a fixed-height panel — the page no longer grows
                   with the contract. */}
-              <div className="p-4 sm:p-6 bg-[color:var(--surface-muted)] doc-preview-scroll">
+              <div className="p-4 sm:p-6 bg-[color:var(--surface)] doc-preview-scroll">
                 {editing ? (
-                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" style={{ minHeight: "60vh" }}>
+                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm p-6 sm:p-8" style={{ minHeight: "60vh" }}>
                     {parseEditBlocks(editedMarkdown).map((block) => {
                       const shared = {
                         contentEditable: true,
@@ -1534,7 +1549,7 @@ export default function Page() {
                     })}
                   </div>
                 ) : (
-                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[#fcfbf5] shadow-sm p-6 sm:p-8" onMouseLeave={() => setHoveredClauseId(null)}>
+                  <div className="doc-paper mx-auto w-full max-w-6xl rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface)] shadow-sm p-6 sm:p-8" onMouseLeave={() => setHoveredClauseId(null)}>
                     {(() => {
                       const sections = parseClauseSections(markdown);
                       const preamble = markdown.slice(0, sections[0]?.start ?? markdown.length);
@@ -1640,7 +1655,7 @@ export default function Page() {
                                 onMouseEnter={() => setHoveredClauseId(section.instanceId)}
                               >
                                 {hovered && renderToolbar("top")}
-                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                                <ReactMarkdown remarkPlugins={[remarkGfm]} components={makeMarkdownComponents(section.start)}>
                                   {section.markdown}
                                 </ReactMarkdown>
                                 <ClauseSuggestionCards
