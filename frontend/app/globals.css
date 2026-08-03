@@ -9,9 +9,10 @@
   --surface-muted: #F6F5F4;
   --border: #E7E5E4;
   --border-hover: #D6D3D1;
-  --text: #1C1917;
-  --text-muted: #A8A29E;
-  --text-secondary: #57534E;
+  --text: #161616;
+  --text-muted: #6B7280;
+  --text-secondary: #4B5563;
+  --text-disabled: #9CA3AF;
   --accent: #A31D2A;
   --accent-strong: #8B1823;
   --accent-pressed: #73141C;
@@ -20,6 +21,7 @@
   --navy: #1E3A5F;
   --navy-hover: #294A73;
   --navy-soft: #F2F6FC;
+  --navy-strong: #16304F;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.05);
   --shadow: var(--shadow-sm);
@@ -46,6 +48,7 @@
   --text: #FAF9F7;
   --text-muted: #A8A29E;
   --text-secondary: #D6D3D1;
+  --text-disabled: #78716C;
   --accent: #A31D2A;
   --accent-strong: #8B1823;
   --accent-pressed: #73141C;
@@ -54,6 +57,7 @@
   --navy: #294A73;
   --navy-hover: #1E3A5F;
   --navy-soft: rgba(30, 58, 95, 0.15);
+  --navy-strong: #3E6091;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
   --shadow: var(--shadow-sm);
@@ -108,7 +112,7 @@ body {
   place-items: center;
   border-radius: 1rem;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #03110f;
+  color: #FFFFFF;
   font-size: 0.95rem;
   font-weight: 700;
   box-shadow: var(--shadow);
@@ -193,7 +197,7 @@ body {
   height: 2.8rem;
   border-radius: 1rem;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #03110f;
+  color: #FFFFFF;
   font-weight: 700;
 }
 
@@ -280,10 +284,11 @@ body {
 }
 
 .sidebar-item.active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: var(--navy-soft);
+  border-color: var(--navy);
+  border-left: 3px solid var(--navy);
   font-weight: 600;
-  color: var(--accent);
+  color: var(--navy);
 }
 
 .sidebar-item-icon {
@@ -291,7 +296,7 @@ body {
   color: #6B7280;
 }
 .theme-dark .sidebar-item-icon { color: var(--text-muted); }
-.sidebar-item.active .sidebar-item-icon { color: var(--accent); }
+.sidebar-item.active .sidebar-item-icon { color: var(--navy); }
 
 .sidebar-item-label {
   margin: 0;
@@ -1043,7 +1048,7 @@ body {
 .primary-action {
   @apply inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold transition focus:outline-none disabled:cursor-not-allowed disabled:opacity-50;
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #03110f;
+  color: #FFFFFF;
   box-shadow: 0 16px 30px -16px rgba(15, 118, 110, 0.55);
 }
 
@@ -1187,6 +1192,18 @@ a:visited, .theme-link:visited {
   color: var(--text);
 }
 
+.doc-list li {
+  color: var(--text);
+}
+
+.theme-dark .doc-paper,
+.theme-dark .doc-heading,
+.theme-dark .doc-paragraph,
+.theme-dark .doc-list,
+.theme-dark .doc-list li {
+  color: #FAF9F7;
+}
+
 .doc-blockquote {
   border-color: rgba(94, 234, 212, 0.35);
 }
@@ -1213,7 +1230,7 @@ a:visited, .theme-link:visited {
 
 .workflow-step-active {
   background: linear-gradient(135deg, var(--accent), var(--accent-strong));
-  color: #03110f;
+  color: #FFFFFF;
   transform: scale(1.05);
 }
 .workflow-step-complete {
@@ -1808,14 +1825,18 @@ pre {
   padding: 1rem 1.25rem;
 }
 .playbook-btn-ghost {
-  border: 1px solid var(--border);
-  background: transparent;
-  color: var(--text);
+  border: 1px solid var(--navy);
+  background: #FFFFFF;
+  color: var(--navy);
   font-size: 0.85rem;
   font-weight: 600;
   padding: 0.45rem 1rem;
   border-radius: 0.75rem;
   cursor: pointer;
+  transition: background-color 150ms ease;
+}
+.playbook-btn-ghost:hover {
+  background: var(--navy-soft);
 }
 .playbook-btn-primary {
   border: none;
@@ -2242,12 +2263,16 @@ pre {
   background: var(--surface-muted);
 }
 .sidebar-entry-active {
-  background: var(--accent-soft);
+  background: var(--navy-soft);
+  color: var(--navy);
 }
 .sidebar-entry-icon {
   color: var(--accent);
   display: flex;
   flex-shrink: 0;
+}
+.sidebar-entry-active .sidebar-entry-icon {
+  color: var(--navy);
 }
 .sidebar-entry-title {
   flex: 1;
@@ -2463,6 +2488,10 @@ h1, h2, h3, h4, h5, h6, .chat-title, .sidebar-brand-title {
 .badge-error {
   background: var(--error-bg);
   color: var(--error);
+}
+.badge-secondary {
+  background: var(--navy);
+  color: #FFFFFF;
 }
 
 tr:hover {
